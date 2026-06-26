@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Work Package - Maker-Checker Platform{% endblock %}
+
+{% block content %}
+<div x-data="editWorkPackage()" x-init="loadWorkPackage()">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Edit Work Package</h1>
+        <p class="text-gray-600 mt-2">Modify the work package details</p>
+    </div>
+
+    <!-- Loading State -->
+    <div x-show="pageLoading" class="flex justify-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+
+    <!-- Rework Required Banner -->
+    <div x-show="!pageLoading && reworkInfo.required" x-cloak
+         class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-lg">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <h3 class="text-lg font-semibold text-orange-800">Rework Required</h3>
+                <p class="text-sm text-orange-700 mt-1">This work package has been returned by the reviewer for modifications.</p>
+
+                <div class="mt-3 bg-white rounded-md p-3 border border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Reviewer's Comments:</p>
+                    <p class="mt-1 text-gray-800 whitespace-pre-wrap" x-text="reworkInfo.comments || 'No specific comments provided'"></p>
+                </div>
+
+                <div x-show="reworkInfo.codeNotes" class="mt-2 bg-white rounded-md p-3 border border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Code Review Notes:</p>
+                    <p class="mt-1 text-gray-800 whitespace-pre-wrap" x-text="reworkInfo.codeNotes"></p>
+                </div>
+
+                <div x-show="reworkInfo.securityNotes" class="mt-2 bg-white rounded-md p-3 border border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Security Review Notes:</p>
+                    <p class="mt-1 text-gray-800 whitespace-pre-wrap" x-text="reworkInfo.securityNotes"></p>
+                </div>
+
+                <div x-show="reworkInfo.impactNotes" class="mt-2 bg-white rounded-md p-3 border border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Impact Review Notes:</p>
+                    <p class="mt-1 text-gray-800 whitespace-pre-wrap" x-text="reworkInfo.impactNotes"></p>
+                </div>
+
+                <p class="text-xs text-orange-600 mt-2" x-show="reworkInfo.reviewedAt">
+                    Reviewed on: <span x-text="new Date(reworkInfo.reviewedAt).toLocaleString()"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <form x-show="!pageLoading" @submit.prevent="submitForm" class="bg-white rounded-lg shadow p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Ticket ID -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ticket ID *</label>
+                <input type="text" x-model="form.ticket_id" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="e.g., CHG001234">
+            </div>
+
+            <!-- Title -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                <input type="text" x-model="form.title" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Brief description of the change">
+            </div>
+
+            <!-- Change Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Change Type *</label>
+                <select x-model="form.change_type" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Select change type</option>
+                    <option value="network">Network (Firewall, Router, Switch)</option>
+                    <option value="server">Server (VM, OS, Patching)</option>
+                    <option value="database">Database (Schema, Config, Backup)</option>
+                    <option value="cloud">Cloud (AWS, Azure, GCP)</option>
+                    <option value="application">Application (Deploy, Config, Restart)</option>
+                    <option value="security">Security (IAM, Cert, Firewall Rule)</option>
+                    <option value="container">Container/K8s (Pods, Deploy, Scale)</option>
+                    <option value="monitoring">Monitoring (Alerts, Dashboards)</option>
+                </select>
+            </div>
+
+            <!-- Trigger Source -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Trigger Source</label>
+                <select x-model="form.trigger_source"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="manual">Manual</option>
+                    <option value="servicenow_incident">ServiceNow Incident</option>
+                    <option value="servicenow_change">ServiceNow Change</option>
+                    <option value="servicenow_request">ServiceNow Request</option>
+                    <option value="api">API</option>
+                </select>
+            </div>
+
+            <!-- Execution Mode -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Execution Mode</label>
+                <select x-model="form.execution_mode"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="manual">Manual</option>
+                    <option value="automated">Automated</option>
+                </select>
+            </div>
+
+            <!-- Target Hosts -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Target Hosts</label>
+                <input type="text" x-model="targetHostsInput"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Comma-separated list of hosts/IPs">
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea x-model="form.description" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Detailed description of the change"></textarea>
+        </div>
+
+        <!-- Generated Code -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Code/Script</label>
+            <textarea x-model="form.generated_code" rows="8"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Enter the code, script, or commands to execute"></textarea>
+        </div>
+
+        <!-- Rollback Procedure -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rollback Procedure</label>
+            <textarea x-model="form.rollback_procedure" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Steps to rollback if the change fails"></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-8 flex justify-end space-x-4">
+            <a :href="`/work-packages/${workPackageId}`" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="button" @click="generateImplementation"
+                    class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                    :disabled="!form.change_type">
+                Regenerate with AI
+            </button>
+            <button type="submit"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    :disabled="loading">
+                <span x-show="!loading">Save Changes</span>
+                <span x-show="loading">Saving...</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Success/Error Messages -->
+    <div x-show="message" x-cloak
+         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+         class="mt-4 p-4 rounded-md">
+        <span x-text="message"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editWorkPackage() {
+    return {
+        workPackageId: '{{ work_package_id }}',
+        form: {
+            ticket_id: '',
+            title: '',
+            description: '',
+            change_type: '',
+            trigger_source: 'manual',
+            execution_mode: 'manual',
+            generated_code: '',
+            rollback_procedure: '',
+            target_hosts: []
+        },
+        targetHostsInput: '',
+        loading: false,
+        pageLoading: true,
+        message: '',
+        messageType: '',
+        reworkInfo: {
+            required: false,
+            comments: '',
+            codeNotes: '',
+            securityNotes: '',
+            impactNotes: '',
+            reviewedAt: null
+        },
+
+        async loadWorkPackage() {
+            try {
+                const response = await fetch(`/api/v1/work-packages/${this.workPackageId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.form.ticket_id = data.ticket_id || '';
+                    this.form.title = data.title || '';
+                    this.form.description = data.description || '';
+                    this.form.change_type = data.change_type || '';
+                    this.form.trigger_source = data.trigger_source || 'manual';
+                    this.form.execution_mode = data.execution_mode || 'manual';
+                    this.form.generated_code = data.generated_code || '';
+                    this.form.rollback_procedure = data.rollback_procedure || '';
+                    this.form.target_hosts = data.target_hosts || [];
+                    this.targetHostsInput = this.form.target_hosts.join(', ');
+
+                    // If status is rework_required, fetch review details
+                    if (data.status === 'rework_required') {
+                        await this.loadReworkReason();
+                    }
+                } else {
+                    this.message = 'Failed to load work package';
+                    this.messageType = 'error';
+                }
+            } catch (error) {
+                this.message = 'Network error loading work package';
+                this.messageType = 'error';
+            }
+            this.pageLoading = false;
+        },
+
+        async loadReworkReason() {
+            try {
+                const response = await fetch(`/api/v1/reviews/work-package/${this.workPackageId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // Find the latest rework_required review
+                    if (data.reviews && data.reviews.length > 0) {
+                        const reworkReview = data.reviews.find(r => r.decision === 'rework_required');
+                        if (reworkReview) {
+                            this.reworkInfo = {
+                                required: true,
+                                comments: reworkReview.comments || '',
+                                codeNotes: reworkReview.code_review_notes || '',
+                                securityNotes: reworkReview.security_review_notes || '',
+                                impactNotes: reworkReview.impact_review_notes || '',
+                                reviewedAt: reworkReview.completed_at
+                            };
+                        }
+                    }
+                    // Also check latest_review in summary
+                    if (data.latest_review && data.latest_review.decision === 'rework_required') {
+                        this.reworkInfo = {
+                            required: true,
+                            comments: data.latest_review.comments || '',
+                            codeNotes: data.latest_review.code_review_notes || '',
+                            securityNotes: data.latest_review.security_review_notes || '',
+                            impactNotes: data.latest_review.impact_review_notes || '',
+                            reviewedAt: data.latest_review.completed_at
+                        };
+                    }
+                }
+            } catch (error) {
+                console.log('Could not load rework reason:', error);
+            }
+        },
+
+        async submitForm() {
+            this.loading = true;
+            this.message = '';
+
+            // Parse target hosts
+            if (this.targetHostsInput) {
+                this.form.target_hosts = this.targetHostsInput.split(',').map(h => h.trim());
+            } else {
+                this.form.target_hosts = [];
+            }
+
+            try {
+                const response = await fetch(`/api/v1/work-packages/${this.workPackageId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.form)
+                });
+
+                if (response.ok) {
+                    this.message = 'Work package updated successfully!';
+                    this.messageType = 'success';
+                    setTimeout(() => {
+                        window.location.href = `/work-packages/${this.workPackageId}`;
+                    }, 1000);
+                } else {
+                    const error = await response.json();
+                    let errorMsg = 'Failed to update work package';
+                    if (error.detail) {
+                        if (Array.isArray(error.detail)) {
+                            errorMsg = error.detail.map(e => e.msg || e).join(', ');
+                        } else {
+                            errorMsg = error.detail;
+                        }
+                    } else if (error.error) {
+                        errorMsg = error.error;
+                    }
+                    this.message = errorMsg;
+                    this.messageType = 'error';
+                    console.error('API Error:', error);
+                }
+            } catch (error) {
+                this.message = 'Network error. Please try again.';
+                this.messageType = 'error';
+            }
+
+            this.loading = false;
+        },
+
+        async generateImplementation() {
+            if (!this.form.change_type) {
+                this.message = 'Please select a change type first';
+                this.messageType = 'error';
+                return;
+            }
+
+            this.loading = true;
+            this.message = 'Generating implementation with AI...';
+            this.messageType = 'success';
+
+            // Fetch CI from ServiceNow if ticket is from ServiceNow
+            let targetHost = '';
+            if (this.form.ticket_id) {
+                targetHost = await this.fetchServiceNowCI(this.form.ticket_id);
+            }
+
+            // Call the AI generation API
+            try {
+                const response = await fetch('/api/v1/ai/generate-script', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        change_type: this.form.change_type,
+                        title: this.form.title,
+                        description: this.form.description,
+                        target_hosts: this.form.target_hosts,
+                        target_host: targetHost
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.form.generated_code = data.script;
+                    this.form.rollback_procedure = data.rollback;
+                    this.message = targetHost
+                        ? `Implementation generated! Target: ${targetHost}`
+                        : 'Implementation generated!';
+                } else {
+                    // Fallback to local generation
+                    this.generateLocalScript();
+                    this.message = 'Generated using local templates';
+                }
+            } catch (error) {
+                // Fallback to local generation
+                this.generateLocalScript();
+                this.message = 'Generated using local templates';
+            }
+
+            this.loading = false;
+        },
+
+        async fetchServiceNowCI(ticketId) {
+            let endpoint = '';
+            if (ticketId.startsWith('CHG')) {
+                endpoint = `/api/v1/servicenow/changes/${ticketId}`;
+            } else if (ticketId.startsWith('INC')) {
+                endpoint = `/api/v1/servicenow/incidents/${ticketId}`;
+            } else if (ticketId.startsWith('REQ')) {
+                endpoint = `/api/v1/servicenow/requests/${ticketId}`;
+            } else {
+                return '';
+            }
+
+            try {
+                const response = await fetch(endpoint);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.cmdb_ci) {
+                        const ci = data.cmdb_ci;
+                        return typeof ci === 'object' ? ci.display_value : ci;
+                    }
+                }
+            } catch (error) {
+                console.log('Could not fetch ServiceNow CI:', error);
+            }
+            return '';
+        },
+
+        generateLocalScript() {
+            const desc = (this.form.description || '').toLowerCase();
+            const title = (this.form.title || '').toLowerCase();
+            const combined = desc + ' ' + title;
+
+            // Detect backup-related tasks
+            if (combined.includes('backup') || combined.includes('archive')) {
+                const sourcePath = this.extractPath(desc, 'from') || '/var/log';
+                const destPath = this.extractPath(desc, 'to') || '/backup';
+
+                this.form.generated_code = `#!/bin/bash
+# Backup Script - Generated from description
+# Description: ${this.form.description}
+
+set -e
+
+# Variables
+SOURCE_PATH="${sourcePath}"
+BACKUP_BASE="${destPath}"
+WEEK_NUM=$(date +%V)
+YEAR=$(date +%Y)
+BACKUP_DIR="\${BACKUP_BASE}/\${WEEK_NUM}_\${YEAR}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+echo "Starting backup at $(date)"
+echo "Source: \${SOURCE_PATH}"
+echo "Destination: \${BACKUP_DIR}"
+
+# Create backup directory
+mkdir -p "\${BACKUP_DIR}"
+
+# Perform backup
+tar -czvf "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" "\${SOURCE_PATH}"
+
+# Verify backup
+if [ -f "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" ]; then
+    echo "Backup completed successfully"
+    ls -lh "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz"
+else
+    echo "Backup failed!"
+    exit 1
+fi
+
+echo "Backup finished at $(date)"`;
+
+                this.form.rollback_procedure = `# Rollback Procedure for Backup
+1. Identify the backup file to restore
+2. Extract: tar -xzvf /backup/WeekNo_Year/backup_timestamp.tar.gz -C /
+3. Verify restored files
+4. Check application functionality`;
+
+            } else if (combined.includes('restart') || combined.includes('service')) {
+                const serviceName = this.extractServiceName(combined) || 'nginx';
+                this.form.generated_code = `#!/bin/bash
+# Service Restart Script
+set -e
+
+SERVICE="${serviceName}"
+
+echo "Restarting \${SERVICE}..."
+sudo systemctl restart \${SERVICE}
+sudo systemctl status \${SERVICE}
+echo "Service restart completed"`;
+
+                this.form.rollback_procedure = `# Rollback
+1. Check service logs: journalctl -u ${serviceName}
+2. Restore previous config if needed
+3. Restart service: sudo systemctl restart ${serviceName}`;
+
+            } else if (this.form.change_type === 'database') {
+                this.form.generated_code = `-- Database Change Script
+-- Description: ${this.form.description}
+
+BEGIN TRANSACTION;
+
+-- Add your SQL changes here
+-- Example: ALTER TABLE, INSERT, UPDATE, etc.
+
+COMMIT;`;
+                this.form.rollback_procedure = `# Rollback
+1. Run rollback script
+2. Verify data integrity`;
+
+            } else {
+                this.form.generated_code = `#!/bin/bash
+# ${this.form.change_type} Change Script
+# Title: ${this.form.title}
+# Description: ${this.form.description}
+
+set -e
+
+echo "Starting ${this.form.change_type} change..."
+
+# TODO: Add implementation based on:
+# ${this.form.description}
+
+echo "Change completed"`;
+
+                this.form.rollback_procedure = `# Rollback Procedure
+1. Stop affected services
+2. Restore from backup
+3. Restart services
+4. Verify functionality`;
+            }
+        },
+
+        extractPath(text, direction) {
+            // Extract path after 'from' or 'to'
+            const regex = new RegExp(direction + '\\s+([/\\w\\-\\.]+)', 'i');
+            const match = text.match(regex);
+            return match ? match[1] : null;
+        },
+
+        extractServiceName(text) {
+            const services = ['nginx', 'apache', 'mysql', 'postgresql', 'redis', 'docker', 'httpd'];
+            for (const svc of services) {
+                if (text.includes(svc)) return svc;
+            }
+            return null;
+        }
+    }
+}
+</script>
+{% endblock %}

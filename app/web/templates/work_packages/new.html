@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Create Work Package - Maker-Checker Platform{% endblock %}
+
+{% block content %}
+<div x-data="createWorkPackage()">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Create Work Package</h1>
+        <p class="text-gray-600 mt-2">Create a new change request for review and execution</p>
+    </div>
+
+    <form @submit.prevent="submitForm" class="bg-white rounded-lg shadow p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Ticket ID -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ticket ID *</label>
+                <input type="text" x-model="form.ticket_id" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="e.g., CHG001234">
+            </div>
+
+            <!-- Title -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                <input type="text" x-model="form.title" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Brief description of the change">
+            </div>
+
+            <!-- Change Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Change Type *</label>
+                <select x-model="form.change_type" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Select change type</option>
+                    <option value="network">Network (Firewall, Router, Switch)</option>
+                    <option value="server">Server (VM, OS, Patching)</option>
+                    <option value="database">Database (Schema, Config, Backup)</option>
+                    <option value="cloud">Cloud (AWS, Azure, GCP)</option>
+                    <option value="application">Application (Deploy, Config, Restart)</option>
+                    <option value="security">Security (IAM, Cert, Firewall Rule)</option>
+                    <option value="container">Container/K8s (Pods, Deploy, Scale)</option>
+                    <option value="monitoring">Monitoring (Alerts, Dashboards)</option>
+                </select>
+            </div>
+
+            <!-- Trigger Source -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Trigger Source</label>
+                <select x-model="form.trigger_source"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="manual">Manual</option>
+                    <option value="servicenow_incident">ServiceNow Incident</option>
+                    <option value="servicenow_change">ServiceNow Change</option>
+                    <option value="servicenow_request">ServiceNow Request</option>
+                    <option value="api">API</option>
+                </select>
+            </div>
+
+            <!-- Execution Mode -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Execution Mode</label>
+                <select x-model="form.execution_mode"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="manual">Manual</option>
+                    <option value="automated">Automated</option>
+                </select>
+            </div>
+
+            <!-- Target Hosts -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Target Hosts</label>
+                <input type="text" x-model="targetHostsInput"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Comma-separated list of hosts/IPs">
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea x-model="form.description" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Detailed description of the change"></textarea>
+        </div>
+
+        <!-- Generated Code -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Code/Script</label>
+            <textarea x-model="form.generated_code" rows="8"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Enter the code, script, or commands to execute"></textarea>
+        </div>
+
+        <!-- Rollback Procedure -->
+        <div class="mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rollback Procedure</label>
+            <textarea x-model="form.rollback_procedure" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Steps to rollback if the change fails"></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-8 flex justify-end space-x-4">
+            <a href="/work-packages" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="button" @click="generateImplementation"
+                    class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                    :disabled="!form.change_type">
+                Generate with AI
+            </button>
+            <button type="submit"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    :disabled="loading">
+                <span x-show="!loading">Create Work Package</span>
+                <span x-show="loading">Creating...</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Success/Error Messages -->
+    <div x-show="message" x-cloak
+         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+         class="mt-4 p-4 rounded-md">
+        <span x-text="message"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function createWorkPackage() {
+    return {
+        form: {
+            ticket_id: '',
+            title: '',
+            description: '',
+            change_type: '',
+            trigger_source: 'manual',
+            execution_mode: 'manual',
+            generated_code: '',
+            rollback_procedure: '',
+            target_hosts: []
+        },
+        targetHostsInput: '',
+        loading: false,
+        message: '',
+        messageType: '',
+
+        async submitForm() {
+            this.loading = true;
+            this.message = '';
+
+            // Parse target hosts
+            if (this.targetHostsInput) {
+                this.form.target_hosts = this.targetHostsInput.split(',').map(h => h.trim());
+            }
+
+            try {
+                const response = await fetch('/api/v1/work-packages/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.form)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.message = 'Work package created successfully!';
+                    this.messageType = 'success';
+                    setTimeout(() => {
+                        window.location.href = `/work-packages/${data.id}`;
+                    }, 1000);
+                } else {
+                    const error = await response.json();
+                    let errorMsg = 'Failed to create work package';
+                    if (error.detail) {
+                        if (Array.isArray(error.detail)) {
+                            errorMsg = error.detail.map(e => e.msg || e).join(', ');
+                        } else {
+                            errorMsg = error.detail;
+                        }
+                    } else if (error.error) {
+                        errorMsg = error.error;
+                    }
+                    this.message = errorMsg;
+                    this.messageType = 'error';
+                    console.error('API Error:', error);
+                }
+            } catch (error) {
+                this.message = 'Network error. Please try again.';
+                this.messageType = 'error';
+            }
+
+            this.loading = false;
+        },
+
+        async generateImplementation() {
+            if (!this.form.change_type) {
+                this.message = 'Please select a change type first';
+                this.messageType = 'error';
+                return;
+            }
+
+            this.loading = true;
+            this.message = 'Generating implementation with AI...';
+            this.messageType = 'success';
+
+            // Call the AI generation API
+            try {
+                const response = await fetch('/api/v1/ai/generate-script', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        change_type: this.form.change_type,
+                        title: this.form.title,
+                        description: this.form.description,
+                        target_hosts: this.form.target_hosts
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.form.generated_code = data.script;
+                    this.form.rollback_procedure = data.rollback;
+                    this.message = 'Implementation generated!';
+                } else {
+                    // Fallback to local generation
+                    this.generateLocalScript();
+                    this.message = 'Generated using local templates';
+                }
+            } catch (error) {
+                // Fallback to local generation
+                this.generateLocalScript();
+                this.message = 'Generated using local templates';
+            }
+
+            this.loading = false;
+        },
+
+        generateLocalScript() {
+            const desc = (this.form.description || '').toLowerCase();
+            const title = (this.form.title || '').toLowerCase();
+            const combined = desc + ' ' + title;
+
+            if (combined.includes('backup') || combined.includes('archive')) {
+                const sourcePath = this.extractPath(desc, 'from') || '/var/log';
+                const destPath = this.extractPath(desc, 'to') || '/backup';
+
+                this.form.generated_code = `#!/bin/bash
+# Backup Script
+set -e
+SOURCE_PATH="${sourcePath}"
+BACKUP_BASE="${destPath}"
+WEEK_NUM=$(date +%V)
+YEAR=$(date +%Y)
+BACKUP_DIR="\${BACKUP_BASE}/\${WEEK_NUM}_\${YEAR}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p "\${BACKUP_DIR}"
+tar -czvf "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" "\${SOURCE_PATH}"
+echo "Backup completed: \${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz"`;
+
+                this.form.rollback_procedure = `# Restore: tar -xzvf backup_file.tar.gz -C /`;
+            } else {
+                this.form.generated_code = `#!/bin/bash
+# ${this.form.change_type} Change Script
+set -e
+echo "Executing ${this.form.change_type} change..."
+# TODO: Add implementation`;
+
+                this.form.rollback_procedure = `# Rollback Procedure
+1. Stop affected services
+2. Restore from backup
+3. Restart services`;
+            }
+        },
+
+        extractPath(text, direction) {
+            const regex = new RegExp(direction + '\\s+([/\\w\\-\\.]+)', 'i');
+            const match = text.match(regex);
+            return match ? match[1] : null;
+        }
+    }
+}
+</script>
+{% endblock %}

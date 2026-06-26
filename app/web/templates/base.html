@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Maker-Checker Platform{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-indigo-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <span class="text-xl font-bold">Maker-Checker Platform</span>
+                    </a>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Dashboard</a>
+                        <a href="/work-packages" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Work Packages</a>
+                        <a href="/workflow/review" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Reviews</a>
+                        <a href="/workflow/validation-queue" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Validation</a>
+                        <a href="/servicenow" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">ServiceNow</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-100 border-t mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-4 text-center text-gray-500 text-sm">
+            Maker-Checker Enterprise Platform v1.0.0
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

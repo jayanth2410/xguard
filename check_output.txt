@@ -1,0 +1,4 @@
+Step 1: Checking imports...
+Step 2: DB=sqlite:///./makerchecker.db
+Step 3: App loaded with 41 routes
+SUCCESS

@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Review Work Package - Maker-Checker Platform{% endblock %}
+
+{% block content %}
+<div x-data="reviewDetail('{{ work_package_id }}')" x-init="loadData()">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Review Work Package</h1>
+        <p class="text-gray-600 mt-2">Expert review and approval</p>
+    </div>
+
+    <!-- Status Check Banner -->
+    <div x-show="pkg.status === 'rework_required'" x-cloak
+         class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-lg">
+        <div class="flex items-center">
+            <svg class="h-6 w-6 text-orange-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div>
+                <h3 class="text-lg font-semibold text-orange-800">Awaiting Maker's Rework</h3>
+                <p class="text-orange-700">This work package was sent back for rework. The maker needs to make changes and resubmit before it can be reviewed again.</p>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="pkg.status === 'draft'" x-cloak
+         class="bg-gray-50 border-l-4 border-gray-500 p-4 mb-6 rounded-r-lg">
+        <div class="flex items-center">
+            <svg class="h-6 w-6 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Not Yet Submitted</h3>
+                <p class="text-gray-700">This work package is still in draft status. The maker needs to submit it for review first.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Review Panel -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Work Package Details -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold" x-text="pkg.title"></h2>
+                        <p class="text-gray-600">
+                            <span x-text="'Ticket: ' + pkg.ticket_id"></span> |
+                            <span class="capitalize" x-text="pkg.change_type"></span>
+                        </p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-sm uppercase"
+                          :class="getRiskClass(pkg.risk_level)"
+                          x-text="pkg.risk_level"></span>
+                </div>
+                <p class="text-gray-700" x-text="pkg.description"></p>
+            </div>
+
+            <!-- Code Review -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Code / Script Review</h3>
+                <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm max-h-96"><code x-text="pkg.generated_code || 'No code to review'"></code></pre>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Code Review Notes</label>
+                    <textarea x-model="review.code_review_notes" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Add notes about the code quality, security concerns, etc."></textarea>
+                </div>
+            </div>
+
+            <!-- Impact Review -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Impact Analysis Review</h3>
+
+                <template x-if="pkg.impact_analysis">
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-500">Risk Level</p>
+                            <span class="px-2 py-1 text-xs rounded-full uppercase"
+                                  :class="getRiskClass(pkg.impact_analysis?.risk_level)"
+                                  x-text="pkg.impact_analysis?.risk_level"></span>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-500">Impact Summary</p>
+                            <p x-text="pkg.impact_analysis?.impact_summary"></p>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-500">Downtime Estimate</p>
+                            <p x-text="pkg.impact_analysis?.downtime_estimate"></p>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Impact Review Notes</label>
+                    <textarea x-model="review.impact_review_notes" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Add notes about the impact analysis, risk assessment, etc."></textarea>
+                </div>
+            </div>
+
+            <!-- Procedure Review -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Implementation Procedure</h3>
+                <div class="prose max-w-none bg-gray-50 p-4 rounded-lg" x-html="formatMarkdown(pkg.generated_procedure)"></div>
+            </div>
+
+            <!-- Rollback Review -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Rollback Procedure</h3>
+                <div class="prose max-w-none bg-gray-50 p-4 rounded-lg" x-html="formatMarkdown(pkg.rollback_procedure)"></div>
+            </div>
+        </div>
+
+        <!-- Review Actions Sidebar -->
+        <div class="space-y-6">
+            <!-- Execution Control -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Execution Control</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-gray-500 mb-2">Proposed Mode</p>
+                        <span class="px-3 py-1 rounded-full text-sm"
+                              :class="pkg.execution_mode === 'automated' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
+                              x-text="pkg.execution_mode"></span>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Approved Execution Mode</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                                   :class="review.approved_execution_mode === 'automated' ? 'border-blue-500 bg-blue-50' : ''">
+                                <input type="radio" x-model="review.approved_execution_mode" value="automated" class="mr-3">
+                                <div>
+                                    <span class="font-medium">Automated</span>
+                                    <p class="text-sm text-gray-500">Execute automatically after validation</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                                   :class="review.approved_execution_mode === 'manual' ? 'border-yellow-500 bg-yellow-50' : ''">
+                                <input type="radio" x-model="review.approved_execution_mode" value="manual" class="mr-3">
+                                <div>
+                                    <span class="font-medium">Manual</span>
+                                    <p class="text-sm text-gray-500">Require manual execution confirmation</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Review -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Security Review</h3>
+                <textarea x-model="review.security_review_notes" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          placeholder="Security concerns, compliance notes..."></textarea>
+            </div>
+
+            <!-- Decision -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Review Decision</h3>
+
+                <div class="space-y-3">
+                    <button @click="submitReview('approved')"
+                            class="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            :disabled="submitting">
+                        ✓ Approve
+                    </button>
+                    <button @click="showReworkModal = true"
+                            class="w-full px-4 py-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                            :disabled="submitting">
+                        ↩ Request Rework
+                    </button>
+                    <button @click="showRejectModal = true"
+                            class="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700"
+                            :disabled="submitting">
+                        ✗ Reject
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rework Modal -->
+    <div x-show="showReworkModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
+            <h3 class="text-lg font-semibold text-orange-800 mb-4">Request Rework</h3>
+            <p class="text-gray-600 mb-4">Please provide clear feedback for the maker about what needs to be changed.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rework Reason / Comments *</label>
+                    <textarea x-model="review.comments" rows="4"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                              placeholder="Explain what needs to be fixed or improved..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Code Issues (optional)</label>
+                    <textarea x-model="review.code_review_notes" rows="2"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Issues with the script or code..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Security Concerns (optional)</label>
+                    <textarea x-model="review.security_review_notes" rows="2"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Security issues to address..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="showReworkModal = false"
+                        class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button @click="submitRework"
+                        class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                        :disabled="!review.comments.trim() || submitting">
+                    <span x-show="!submitting">Send for Rework</span>
+                    <span x-show="submitting">Submitting...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Modal -->
+    <div x-show="showRejectModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
+            <h3 class="text-lg font-semibold text-red-800 mb-4">Reject Work Package</h3>
+            <p class="text-gray-600 mb-4">Please provide a reason for rejection.</p>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Rejection Reason *</label>
+                <textarea x-model="review.comments" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          placeholder="Explain why this work package is being rejected..."></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="showRejectModal = false"
+                        class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button @click="submitReject"
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                        :disabled="!review.comments.trim() || submitting">
+                    <span x-show="!submitting">Reject</span>
+                    <span x-show="submitting">Submitting...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message -->
+    <div x-show="message" x-cloak
+         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+         class="fixed bottom-4 right-4 p-4 rounded-md shadow-lg">
+        <span x-text="message"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function reviewDetail(workPackageId) {
+    return {
+        workPackageId: workPackageId,
+        pkg: {},
+        review: {
+            code_review_notes: '',
+            security_review_notes: '',
+            impact_review_notes: '',
+            comments: '',
+            approved_execution_mode: 'manual'
+        },
+        submitting: false,
+        message: '',
+        messageType: '',
+        reviewerId: 'demo-reviewer-id', // In production, get from auth
+        showReworkModal: false,
+        showRejectModal: false,
+
+        async loadData() {
+            try {
+                const response = await fetch(`/api/v1/work-packages/${this.workPackageId}`);
+                if (response.ok) {
+                    this.pkg = await response.json();
+                    this.review.approved_execution_mode = this.pkg.execution_mode || 'manual';
+                }
+
+                // Start review
+                await fetch(`/api/v1/reviews/${this.workPackageId}/start?reviewer_id=${this.reviewerId}`, {
+                    method: 'POST'
+                });
+            } catch (error) {
+                this.message = 'Failed to load work package';
+                this.messageType = 'error';
+            }
+        },
+
+        async submitReview(decision) {
+            this.submitting = true;
+
+            try {
+                const response = await fetch(`/api/v1/reviews/submit?reviewer_id=${this.reviewerId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        work_package_id: this.workPackageId,
+                        decision: decision,
+                        comments: this.review.comments,
+                        code_review_notes: this.review.code_review_notes,
+                        security_review_notes: this.review.security_review_notes,
+                        impact_review_notes: this.review.impact_review_notes,
+                        approved_execution_mode: this.review.approved_execution_mode
+                    })
+                });
+
+                if (response.ok) {
+                    this.message = `Review submitted: ${decision}`;
+                    this.messageType = 'success';
+                    setTimeout(() => {
+                        window.location.href = '/workflow/review';
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    this.message = error.detail || 'Failed to submit review';
+                    this.messageType = 'error';
+                }
+            } catch (error) {
+                this.message = 'Network error';
+                this.messageType = 'error';
+            }
+
+            this.submitting = false;
+        },
+
+        async submitRework() {
+            if (!this.review.comments.trim()) {
+                this.message = 'Please provide a reason for rework';
+                this.messageType = 'error';
+                return;
+            }
+            this.showReworkModal = false;
+            await this.submitReview('rework_required');
+        },
+
+        async submitReject() {
+            if (!this.review.comments.trim()) {
+                this.message = 'Please provide a reason for rejection';
+                this.messageType = 'error';
+                return;
+            }
+            this.showRejectModal = false;
+            await this.submitReview('rejected');
+        },
+
+        getRiskClass(level) {
+            const classes = {
+                'red': 'bg-red-100 text-red-800',
+                'amber': 'bg-yellow-100 text-yellow-800',
+                'green': 'bg-green-100 text-green-800'
+            };
+            return classes[level] || 'bg-gray-100 text-gray-800';
+        },
+
+        formatMarkdown(text) {
+            if (!text) return '<p class="text-gray-500">Not provided</p>';
+            return text.replace(/\n/g, '<br>').replace(/^#\s+(.+)$/gm, '<h4 class="font-semibold mt-2">$1</h4>');
+        }
+    }
+}
+</script>
+{% endblock %}
