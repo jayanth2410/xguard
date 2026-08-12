@@ -1,13 +1,13 @@
 """Human Checker Service - Expert review and approval"""
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 import structlog
 
 from app.models.database import WorkPackage, Review, User
 from app.models.enums import WorkflowStatus, ExecutionMode
-from app.schemas.review import ReviewCreate, ReviewDecision
+from app.schemas.review import ReviewCreate, ReviewDecision, ReviewDraft
 
 logger = structlog.get_logger()
 
@@ -36,6 +36,28 @@ class CheckerService:
             query = query.filter(WorkPackage.assigned_checker_id == checker_id)
 
         return query.order_by(WorkPackage.created_at.asc()).offset(skip).limit(limit).all()
+
+    async def get_queue_stats(self) -> dict:
+        """Return unpaginated review-queue counts and today's completions."""
+        pending = self.db.query(WorkPackage).filter(
+            WorkPackage.status == WorkflowStatus.PENDING_REVIEW
+        ).count()
+        in_review = self.db.query(WorkPackage).filter(
+            WorkPackage.status == WorkflowStatus.IN_REVIEW
+        ).count()
+        today_start = datetime.utcnow().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        tomorrow_start = today_start + timedelta(days=1)
+        reviewed_today = self.db.query(Review).filter(
+            Review.completed_at >= today_start,
+            Review.completed_at < tomorrow_start,
+        ).count()
+        return {
+            "pending": pending,
+            "in_review": in_review,
+            "reviewed_today": reviewed_today,
+        }
 
     async def start_review(
         self,
@@ -111,6 +133,7 @@ class CheckerService:
         review.decision = review_data.decision.value
         review.comments = review_data.comments
         review.code_review_notes = review_data.code_review_notes
+        review.rollback_review_notes = review_data.rollback_review_notes
         review.security_review_notes = review_data.security_review_notes
         review.impact_review_notes = review_data.impact_review_notes
         review.approved_execution_mode = review_data.approved_execution_mode
@@ -118,11 +141,14 @@ class CheckerService:
 
         # Update work package status based on decision
         if review_data.decision == ReviewDecision.APPROVED:
+            # Clarification is completed before review; approval unlocks execution.
             work_package.status = WorkflowStatus.APPROVED
             if review_data.approved_execution_mode:
                 work_package.execution_mode = review_data.approved_execution_mode
         elif review_data.decision == ReviewDecision.REJECTED:
-            work_package.status = WorkflowStatus.REJECTED
+            # Preserve the rejected decision on the review, but return the package
+            # to the maker with the review comments for correction and resubmission.
+            work_package.status = WorkflowStatus.REWORK_REQUIRED
         elif review_data.decision == ReviewDecision.REWORK_REQUIRED:
             work_package.status = WorkflowStatus.REWORK_REQUIRED
 
@@ -138,9 +164,44 @@ class CheckerService:
 
         return review
 
-    async def get_review(self, review_id: UUID) -> Optional[Review]:
-        """Get a review by ID"""
-        return self.db.query(Review).filter(Review.id == review_id).first()
+    async def save_review_draft(
+        self,
+        work_package_id: UUID,
+        reviewer_id: UUID,
+        draft: ReviewDraft,
+    ) -> Review:
+        """Persist an in-progress review without changing workflow status."""
+        work_package = self.db.query(WorkPackage).filter(
+            WorkPackage.id == work_package_id
+        ).first()
+        if not work_package:
+            raise ValueError("Work package not found")
+        if work_package.status != WorkflowStatus.IN_REVIEW:
+            raise ValueError("Start the review before saving review notes")
+
+        review = self.db.query(Review).filter(
+            Review.work_package_id == work_package_id,
+            Review.reviewer_id == reviewer_id,
+            Review.completed_at.is_(None),
+        ).first()
+        if not review:
+            review = Review(
+                work_package_id=work_package_id,
+                reviewer_id=reviewer_id,
+                decision="in_progress",
+                started_at=datetime.utcnow(),
+            )
+            self.db.add(review)
+
+        review.comments = draft.comments
+        review.code_review_notes = draft.code_review_notes
+        review.rollback_review_notes = draft.rollback_review_notes
+        review.security_review_notes = draft.security_review_notes
+        review.impact_review_notes = draft.impact_review_notes
+        review.approved_execution_mode = draft.approved_execution_mode
+        self.db.commit()
+        self.db.refresh(review)
+        return review
 
     async def get_reviews_for_work_package(
         self,
@@ -168,6 +229,7 @@ class CheckerService:
                 "decision": r.decision,
                 "comments": r.comments,
                 "code_review_notes": r.code_review_notes,
+                "rollback_review_notes": r.rollback_review_notes,
                 "security_review_notes": r.security_review_notes,
                 "impact_review_notes": r.impact_review_notes,
                 "approved_execution_mode": r.approved_execution_mode.value if r.approved_execution_mode else None,
@@ -187,37 +249,3 @@ class CheckerService:
             "reviews": reviews_list,
         }
 
-    async def add_review_comment(
-        self,
-        work_package_id: UUID,
-        reviewer_id: UUID,
-        comment: str,
-        comment_type: str = "general",  # general, code, security, impact
-    ) -> Review:
-        """Add a comment to an in-progress review"""
-        review = self.db.query(Review).filter(
-            Review.work_package_id == work_package_id,
-            Review.reviewer_id == reviewer_id,
-            Review.completed_at.is_(None),
-        ).first()
-
-        if not review:
-            raise ValueError("No active review found")
-
-        if comment_type == "code":
-            existing = review.code_review_notes or ""
-            review.code_review_notes = f"{existing}\n{comment}".strip()
-        elif comment_type == "security":
-            existing = review.security_review_notes or ""
-            review.security_review_notes = f"{existing}\n{comment}".strip()
-        elif comment_type == "impact":
-            existing = review.impact_review_notes or ""
-            review.impact_review_notes = f"{existing}\n{comment}".strip()
-        else:
-            existing = review.comments or ""
-            review.comments = f"{existing}\n{comment}".strip()
-
-        self.db.commit()
-        self.db.refresh(review)
-
-        return review

@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*.log
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.env
+.env.*
+!.env.example
+
+venv/
+.venv/
+
+*.db-journal
+*.db-shm
+*.db-wal
+
+check_output.txt
+import_test.txt
+server_output.log
+test_output.txt
+
+# Ignore local config containing secrets
+config.ini

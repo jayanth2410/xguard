@@ -1,37 +1,45 @@
 {% extends "base.html" %}
 
-{% block title %}Create Work Package - Maker-Checker Platform{% endblock %}
+{% block title %}Create Work Package - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="createWorkPackage()">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Create Work Package</h1>
-        <p class="text-gray-600 mt-2">Create a new change request for review and execution</p>
+    <div class="mb-4 flex items-start justify-between gap-3">
+        <div><h1 class="text-2xl font-bold text-gray-900">Create Work Package</h1>
+        <p class="mt-1 text-sm text-gray-600">Create a change request for clarification, review, and controlled execution.</p></div>
+        <a href="/work-packages" class="inline-flex flex-none items-center gap-1.5 rounded border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-50" aria-label="Back to work packages">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back
+        </a>
     </div>
 
-    <form @submit.prevent="submitForm" class="bg-white rounded-lg shadow p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form @submit.prevent="submitForm" class="space-y-4">
+        <section class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm">
+            <div class="border-b border-blue-200 bg-blue-50 px-3 py-2">
+                <h2 class="text-sm font-semibold text-blue-900">Work Package Details</h2>
+            </div>
+            <div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 lg:grid-cols-4 [&_label]:mb-1 [&_label]:block [&_label]:text-xs [&_label]:font-medium [&_label]:text-gray-600 [&_input]:rounded [&_input]:border [&_input]:border-gray-300 [&_input]:px-2.5 [&_input]:py-1.5 [&_input]:text-sm [&_select]:rounded [&_select]:border [&_select]:border-gray-300 [&_select]:px-2.5 [&_select]:py-1.5 [&_select]:text-sm">
             <!-- Ticket ID -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Ticket ID *</label>
+                <label>Ticket ID <span class="text-red-600">*</span></label>
                 <input type="text" x-model="form.ticket_id" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       class="w-full focus:border-blue-500 focus:ring-blue-500"
                        placeholder="e.g., CHG001234">
             </div>
 
             <!-- Title -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                <label>Title <span class="text-red-600">*</span></label>
                 <input type="text" x-model="form.title" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       class="w-full focus:border-blue-500 focus:ring-blue-500"
                        placeholder="Brief description of the change">
             </div>
 
             <!-- Change Type -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Change Type *</label>
+                <label>Change Type <span class="text-red-600">*</span></label>
                 <select x-model="form.change_type" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        class="w-full focus:border-blue-500 focus:ring-blue-500">
                     <option value="">Select change type</option>
                     <option value="network">Network (Firewall, Router, Switch)</option>
                     <option value="server">Server (VM, OS, Patching)</option>
@@ -46,9 +54,9 @@
 
             <!-- Trigger Source -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Trigger Source</label>
+                <label>Trigger Source</label>
                 <select x-model="form.trigger_source"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        class="w-full focus:border-blue-500 focus:ring-blue-500">
                     <option value="manual">Manual</option>
                     <option value="servicenow_incident">ServiceNow Incident</option>
                     <option value="servicenow_change">ServiceNow Change</option>
@@ -59,9 +67,9 @@
 
             <!-- Execution Mode -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Execution Mode</label>
+                <label>Execution Mode</label>
                 <select x-model="form.execution_mode"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        class="w-full focus:border-blue-500 focus:ring-blue-500">
                     <option value="manual">Manual</option>
                     <option value="automated">Automated</option>
                 </select>
@@ -69,49 +77,71 @@
 
             <!-- Target Hosts -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Target Hosts</label>
+                <label>Target Hosts</label>
                 <input type="text" x-model="targetHostsInput"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       class="w-full focus:border-blue-500 focus:ring-blue-500"
                        placeholder="Comma-separated list of hosts/IPs">
             </div>
-        </div>
 
-        <!-- Description -->
-        <div class="mt-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea x-model="form.description" rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            <div>
+                <label>Platform / Operating System</label>
+                <input type="text" x-model="platformInput"
+                       class="w-full focus:border-blue-500 focus:ring-blue-500"
+                       placeholder="For example: Linux, Ubuntu 22.04, Windows Server 2022">
+            </div>
+            <div class="md:col-span-2 lg:col-span-4">
+                <label>Description</label>
+                <textarea x-model="form.description" rows="6"
+                      class="w-full resize-y rounded border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-blue-500 focus:ring-blue-500"
                       placeholder="Detailed description of the change"></textarea>
-        </div>
+            </div>
+            </div>
+        </section>
 
-        <!-- Generated Code -->
-        <div class="mt-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Code/Script</label>
-            <textarea x-model="form.generated_code" rows="8"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-indigo-500 focus:border-indigo-500"
+        <section class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm">
+                <label class="block border-b border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900">Implementation Code</label>
+                <textarea x-model="form.generated_code" rows="10"
+                      class="w-full resize-y border-0 px-3 py-2 font-mono text-xs leading-5 focus:ring-0"
                       placeholder="Enter the code, script, or commands to execute"></textarea>
-        </div>
+            </div>
 
-        <!-- Rollback Procedure -->
-        <div class="mt-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Rollback Procedure</label>
-            <textarea x-model="form.rollback_procedure" rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            <div class="overflow-hidden rounded-md border border-amber-200 bg-white shadow-sm">
+                <label class="block border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Rollback Procedure</label>
+                <textarea x-model="form.rollback_procedure" rows="10"
+                      class="w-full resize-y border-0 px-3 py-2 font-mono text-xs leading-5 focus:ring-0"
                       placeholder="Steps to rollback if the change fails"></textarea>
-        </div>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-md border border-sky-200 bg-white shadow-sm" x-show="form.ai_questions.length > 0" x-cloak>
+            <div class="flex items-center justify-between border-b border-sky-200 bg-sky-50 px-3 py-2">
+                <h2 class="text-sm font-semibold text-sky-900">Clarification Questions</h2>
+                <span class="text-xs text-sky-700" x-text="form.ai_questions.length + ' questions'"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2">
+                <template x-for="(question, index) in form.ai_questions" :key="question.question_key">
+                    <div class="flex items-start gap-2 border-b border-sky-100 p-3 text-sm text-gray-800 md:odd:border-r">
+                        <span class="text-gray-400" x-text="(index + 1) + '.'"></span>
+                        <span x-text="question.question_text"></span>
+                        <span x-show="question.is_required" class="font-bold text-red-600">*</span>
+                    </div>
+                </template>
+            </div>
+        </section>
 
         <!-- Actions -->
-        <div class="mt-8 flex justify-end space-x-4">
-            <a href="/work-packages" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+        <div class="sticky bottom-0 flex justify-end gap-2 rounded-md border border-blue-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+            <a href="/work-packages" class="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
                 Cancel
             </a>
             <button type="button" @click="generateImplementation"
-                    class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
-                    :disabled="!form.change_type">
+                    class="rounded border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+                    :disabled="!form.title.trim() && !form.description.trim()">
                 Generate with AI
             </button>
             <button type="submit"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    class="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
                     :disabled="loading">
                 <span x-show="!loading">Create Work Package</span>
                 <span x-show="loading">Creating...</span>
@@ -119,11 +149,11 @@
         </div>
     </form>
 
-    <!-- Success/Error Messages -->
-    <div x-show="message" x-cloak
-         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-         class="mt-4 p-4 rounded-md">
-        <span x-text="message"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
+         :class="messageType === 'success' ? 'border-green-300' : 'border-red-300'">
+        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : 'bg-red-500'"></span>
+        <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Success' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
+        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -141,9 +171,17 @@ function createWorkPackage() {
             execution_mode: 'manual',
             generated_code: '',
             rollback_procedure: '',
+            generated_procedure: '',
+            pre_checks: null,
+            post_checks: null,
+            impact_analysis: null,
+            variables: {},
+            ai_questions: [],
+            ai_question_responses: [],
             target_hosts: []
         },
         targetHostsInput: '',
+        platformInput: '',
         loading: false,
         message: '',
         messageType: '',
@@ -156,6 +194,10 @@ function createWorkPackage() {
             if (this.targetHostsInput) {
                 this.form.target_hosts = this.targetHostsInput.split(',').map(h => h.trim());
             }
+            this.form.variables = {
+                ...(this.form.variables || {}),
+                platform: this.platformInput.trim()
+            };
 
             try {
                 const response = await fetch('/api/v1/work-packages/', {
@@ -170,7 +212,7 @@ function createWorkPackage() {
                     this.messageType = 'success';
                     setTimeout(() => {
                         window.location.href = `/work-packages/${data.id}`;
-                    }, 1000);
+                    }, 5000);
                 } else {
                     const error = await response.json();
                     let errorMsg = 'Failed to create work package';
@@ -196,8 +238,8 @@ function createWorkPackage() {
         },
 
         async generateImplementation() {
-            if (!this.form.change_type) {
-                this.message = 'Please select a change type first';
+            if (!this.form.title.trim() && !this.form.description.trim()) {
+                this.message = 'Enter a title or description before generating';
                 this.messageType = 'error';
                 return;
             }
@@ -215,7 +257,8 @@ function createWorkPackage() {
                         change_type: this.form.change_type,
                         title: this.form.title,
                         description: this.form.description,
-                        target_hosts: this.form.target_hosts
+                        target_hosts: this.form.target_hosts,
+                        platform: this.platformInput.trim()
                     })
                 });
 
@@ -223,64 +266,35 @@ function createWorkPackage() {
                     const data = await response.json();
                     this.form.generated_code = data.script;
                     this.form.rollback_procedure = data.rollback;
-                    this.message = 'Implementation generated!';
+                    this.form.generated_procedure = data.implementation_procedure;
+                    this.form.pre_checks = data.pre_checks;
+                    this.form.post_checks = data.post_checks;
+                    this.form.impact_analysis = data.impact_analysis;
+                    this.form.ai_questions = data.questions || [];
+                    this.form.ai_question_responses = [];
+                    this.form.variables = {
+                        ...(this.form.variables || {}),
+                        ai_generated: true,
+                        ai_intent: data.intent,
+                        platform: this.platformInput.trim()
+                    };
+                    if (data.detected_change_type) {
+                        this.form.change_type = data.detected_change_type;
+                    }
+                    this.message = `AI implementation generated. Intent: ${data.intent}.`;
                 } else {
-                    // Fallback to local generation
-                    this.generateLocalScript();
-                    this.message = 'Generated using local templates';
+                    const error = await response.json();
+                    this.message = error.detail || 'AI generation failed';
+                    this.messageType = 'error';
                 }
             } catch (error) {
-                // Fallback to local generation
-                this.generateLocalScript();
-                this.message = 'Generated using local templates';
+                this.message = 'AI generation failed. Check the API configuration and try again.';
+                this.messageType = 'error';
             }
 
             this.loading = false;
         },
 
-        generateLocalScript() {
-            const desc = (this.form.description || '').toLowerCase();
-            const title = (this.form.title || '').toLowerCase();
-            const combined = desc + ' ' + title;
-
-            if (combined.includes('backup') || combined.includes('archive')) {
-                const sourcePath = this.extractPath(desc, 'from') || '/var/log';
-                const destPath = this.extractPath(desc, 'to') || '/backup';
-
-                this.form.generated_code = `#!/bin/bash
-# Backup Script
-set -e
-SOURCE_PATH="${sourcePath}"
-BACKUP_BASE="${destPath}"
-WEEK_NUM=$(date +%V)
-YEAR=$(date +%Y)
-BACKUP_DIR="\${BACKUP_BASE}/\${WEEK_NUM}_\${YEAR}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p "\${BACKUP_DIR}"
-tar -czvf "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" "\${SOURCE_PATH}"
-echo "Backup completed: \${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz"`;
-
-                this.form.rollback_procedure = `# Restore: tar -xzvf backup_file.tar.gz -C /`;
-            } else {
-                this.form.generated_code = `#!/bin/bash
-# ${this.form.change_type} Change Script
-set -e
-echo "Executing ${this.form.change_type} change..."
-# TODO: Add implementation`;
-
-                this.form.rollback_procedure = `# Rollback Procedure
-1. Stop affected services
-2. Restore from backup
-3. Restart services`;
-            }
-        },
-
-        extractPath(text, direction) {
-            const regex = new RegExp(direction + '\\s+([/\\w\\-\\.]+)', 'i');
-            const match = text.match(regex);
-            return match ? match[1] : null;
-        }
     }
 }
 </script>

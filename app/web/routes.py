@@ -78,28 +78,22 @@ def review_queue():
     return render_template('workflow/review.html')
 
 
-@workflow_bp.route('/validation-queue')
-def validation_queue():
-    """Validation queue page - shows work packages in validation"""
-    return render_template('workflow/validation_queue.html')
-
-
 @workflow_bp.route('/review/<work_package_id>')
 def review_work_package(work_package_id):
     """Review a specific work package"""
     return render_template('workflow/review_detail.html', work_package_id=work_package_id)
 
 
-@workflow_bp.route('/validation/<work_package_id>')
-def validation_session(work_package_id):
-    """Validation session page"""
-    return render_template('workflow/validation.html', work_package_id=work_package_id)
-
-
 @workflow_bp.route('/execute/<work_package_id>')
 def execution_page(work_package_id):
     """Execution page"""
     return render_template('workflow/execution.html', work_package_id=work_package_id)
+
+
+@workflow_bp.route('/execute')
+def execution_queue():
+    """Approved work packages available for execution."""
+    return render_template('workflow/execution_queue.html')
 
 
 @workflow_bp.route('/audit/<work_package_id>')
@@ -114,7 +108,3 @@ def servicenow_page():
     return render_template('servicenow/index.html')
 
 
-@main_bp.route('/servicenow/import/<incident_number>')
-def servicenow_import(incident_number):
-    """Import incident from ServiceNow"""
-    return render_template('servicenow/import.html', incident_number=incident_number)

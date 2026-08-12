@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Audit Trail - Maker-Checker Platform{% endblock %}
+{% block title %}Audit Trail - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="auditTrail('{{ work_package_id }}')" x-init="loadAudit()">
@@ -88,9 +88,9 @@
                    x-text="compliance.has_review ? 'Yes' : 'No'"></p>
             </div>
             <div class="p-4 bg-gray-50 rounded-lg">
-                <p class="text-sm text-gray-500">Validation Complete</p>
-                <p class="text-lg font-semibold" :class="compliance.validation_complete ? 'text-green-600' : 'text-red-600'"
-                   x-text="compliance.validation_complete ? 'Yes' : 'No'"></p>
+                <p class="text-sm text-gray-500">Has Execution Record</p>
+                <p class="text-lg font-semibold" :class="compliance.has_execution_record ? 'text-green-600' : 'text-red-600'"
+                   x-text="compliance.has_execution_record ? 'Yes' : 'No'"></p>
             </div>
             <div class="p-4 bg-gray-50 rounded-lg">
                 <p class="text-sm text-gray-500">Has Rollback Plan</p>
@@ -148,7 +148,6 @@ function auditTrail(workPackageId) {
             if (action.includes('approved')) return 'bg-green-500';
             if (action.includes('rejected')) return 'bg-red-500';
             if (action.includes('review')) return 'bg-pink-500';
-            if (action.includes('validation')) return 'bg-yellow-500';
             if (action.includes('execution')) return 'bg-purple-500';
             return 'bg-gray-500';
         },

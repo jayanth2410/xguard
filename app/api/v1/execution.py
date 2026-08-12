@@ -3,15 +3,15 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.execution import ExecutionRequest, ExecutionResponse
 from app.services.execution_service import ExecutionService
-from app.services.remote_executor import RemoteExecutor, ConnectionConfig, LocalExecutor
+from app.services.remote_executor import RemoteExecutor, ConnectionConfig
 from app.services.servicenow_service import servicenow
 from app.models.database import WorkPackage, ExecutionRecord
+from app.models.enums import ExecutionMode, WorkflowStatus
 
 router = APIRouter()
 
@@ -34,74 +34,11 @@ class RemoteCommandRequest(BaseModel):
     password: str = ""
     private_key: str = ""
     connection_type: str = "ssh"
+    work_package_id: UUID
+    is_rollback: bool = False
+    rollback_complete: bool = False
     command: str
     timeout: int = 300
-
-
-@router.post("/start", response_model=ExecutionResponse, status_code=201)
-async def start_execution(
-    request: ExecutionRequest,
-    executor_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
-):
-    """Start executing a validated work package"""
-    service = ExecutionService(db)
-
-    try:
-        execution = await service.start_execution(request, executor_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return execution
-
-
-@router.get("/{execution_id}", response_model=ExecutionResponse)
-async def get_execution(
-    execution_id: UUID,
-    db: Session = Depends(get_db),
-):
-    """Get an execution record by ID"""
-    service = ExecutionService(db)
-    execution = await service.get_execution(execution_id)
-
-    if not execution:
-        raise HTTPException(status_code=404, detail="Execution not found")
-
-    return execution
-
-
-@router.get("/{execution_id}/status")
-async def get_execution_status(
-    execution_id: UUID,
-    db: Session = Depends(get_db),
-):
-    """Get detailed execution status"""
-    service = ExecutionService(db)
-    status = await service.get_execution_status(execution_id)
-
-    if "error" in status:
-        raise HTTPException(status_code=404, detail=status["error"])
-
-    return status
-
-
-@router.get("/work-package/{work_package_id}")
-async def get_executions_for_work_package(
-    work_package_id: UUID,
-    db: Session = Depends(get_db),
-):
-    """Get all executions for a work package"""
-    service = ExecutionService(db)
-    executions = await service.get_executions_for_work_package(work_package_id)
-
-    return {
-        "work_package_id": str(work_package_id),
-        "execution_count": len(executions),
-        "executions": [
-            await service.get_execution_status(e.id)
-            for e in executions
-        ],
-    }
 
 
 class CommandLogEntry(BaseModel):
@@ -114,104 +51,58 @@ class CommandLogEntry(BaseModel):
     host: str = ""
 
 
-class CommandLogRequest(BaseModel):
-    """Request to log a command"""
-    work_package_id: str
-    command: str
-    output: str = ""
-    stderr: str = ""
-    exit_code: int = 0
-    success: bool = True
-    host: str = ""
-
-
 class CompleteExecutionRequest(BaseModel):
     """Request to complete execution"""
     close_servicenow: bool = True
     close_notes: str = ""
-    command_log: List[CommandLogEntry] = []
+    command_log: List[CommandLogEntry] = Field(default_factory=list)
 
 
-@router.post("/{work_package_id}/log-command")
-async def log_command(
-    work_package_id: UUID,
-    request: CommandLogRequest,
-    db: Session = Depends(get_db),
-):
-    """Log a command execution to the work package"""
+def _get_authorized_work_package(db: Session, work_package_id: UUID, *, is_rollback: bool = False) -> WorkPackage:
+    """Enforce reviewer approval before a remote command is run."""
     work_package = db.query(WorkPackage).filter(WorkPackage.id == work_package_id).first()
     if not work_package:
         raise HTTPException(status_code=404, detail="Work package not found")
+    if is_rollback:
+        allowed = {WorkflowStatus.EXECUTION_FAILED, WorkflowStatus.EXECUTING}
+        message = "Rollback is only allowed after execution has started or failed."
+    else:
+        allowed = {WorkflowStatus.APPROVED, WorkflowStatus.PENDING_EXECUTION, WorkflowStatus.EXECUTING}
+        message = f"Cannot execute from status: {work_package.status.value}. The work package must be approved by a reviewer first."
+    if work_package.status not in allowed:
+        raise HTTPException(status_code=409, detail=message)
+    return work_package
 
-    # Get or create execution record
-    execution = db.query(ExecutionRecord).filter(
-        ExecutionRecord.work_package_id == work_package_id
-    ).order_by(ExecutionRecord.started_at.desc()).first()
 
-    if not execution:
-        from app.models.enums import ExecutionMode
-        execution = ExecutionRecord(
-            work_package_id=work_package_id,
-            execution_mode=work_package.execution_mode or ExecutionMode.MANUAL,
-            status="running",
-            started_at=datetime.utcnow(),
-            command_log=[]
-        )
+def _record_remote_result(db, work_package, request, result) -> None:
+    """Persist execution state immediately; do not depend on client-side logging."""
+    execution = db.query(ExecutionRecord).filter(ExecutionRecord.work_package_id == work_package.id).order_by(ExecutionRecord.started_at.desc()).first()
+    if not execution or execution.status in {"success", "rolled_back"}:
+        execution = ExecutionRecord(work_package_id=work_package.id, execution_mode=work_package.execution_mode or ExecutionMode.MANUAL, status="running", started_at=datetime.utcnow(), command_log=[])
         db.add(execution)
-
-    # Add command to log
-    command_entry = {
-        "command": request.command,
-        "output": request.output,
-        "stderr": request.stderr,
-        "exit_code": request.exit_code,
-        "success": request.success,
-        "host": request.host,
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-    current_log = execution.command_log or []
-    current_log.append(command_entry)
-    execution.command_log = current_log
-
-    # Update output log
-    output_line = f"[{command_entry['timestamp']}] $ {request.command}\n{request.output}"
-    if request.stderr:
-        output_line += f"\nSTDERR: {request.stderr}"
-    output_line += f"\nExit: {request.exit_code}\n"
-
-    execution.output_log = (execution.output_log or "") + output_line
-
+    entry = {"command": request.command, "output": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code, "success": result.success, "host": request.host, "is_rollback": request.is_rollback, "timestamp": datetime.utcnow().isoformat()}
+    log = list(execution.command_log or [])
+    log.append(entry)
+    execution.command_log = log
+    execution.exit_code = result.exit_code
+    execution.output_log = (execution.output_log or "") + f"\n$ {request.command}\n{result.stdout}\n{result.stderr}".rstrip()
+    if request.is_rollback:
+        execution.rollback_initiated = True
+        execution.rollback_status = "in_progress" if result.success else "failed"
+        if result.success and request.rollback_complete:
+            execution.rollback_status = "completed"
+            execution.status = "rolled_back"
+            execution.completed_at = datetime.utcnow()
+            work_package.status = WorkflowStatus.ROLLED_BACK
+        execution.rollback_log = (execution.rollback_log or "") + f"\n$ {request.command}\n{result.stdout}\n{result.stderr}".rstrip()
+    elif result.success:
+        execution.status = "running"
+        work_package.status = WorkflowStatus.EXECUTING
+    else:
+        execution.status = "failed"
+        execution.error_log = result.stderr or result.stdout or "Remote execution failed"
+        work_package.status = WorkflowStatus.EXECUTION_FAILED
     db.commit()
-
-    return {
-        "success": True,
-        "logged_commands": len(current_log),
-        "message": "Command logged successfully"
-    }
-
-
-@router.get("/{work_package_id}/command-log")
-async def get_command_log(
-    work_package_id: UUID,
-    db: Session = Depends(get_db),
-):
-    """Get the command log for a work package"""
-    execution = db.query(ExecutionRecord).filter(
-        ExecutionRecord.work_package_id == work_package_id
-    ).order_by(ExecutionRecord.started_at.desc()).first()
-
-    if not execution:
-        return {"work_package_id": str(work_package_id), "commands": [], "count": 0}
-
-    return {
-        "work_package_id": str(work_package_id),
-        "execution_id": str(execution.id),
-        "commands": execution.command_log or [],
-        "count": len(execution.command_log or []),
-        "output_log": execution.output_log
-    }
-
 
 @router.post("/{work_package_id}/complete")
 async def complete_execution(
@@ -227,26 +118,11 @@ async def complete_execution(
     if not work_package:
         raise HTTPException(status_code=404, detail="Work package not found")
 
-    # Save command log if provided
-    if request and request.command_log:
-        execution = db.query(ExecutionRecord).filter(
-            ExecutionRecord.work_package_id == work_package_id
-        ).order_by(ExecutionRecord.started_at.desc()).first()
-
-        if execution:
-            # Build execution log summary for ServiceNow
-            log_entries = []
-            for cmd in request.command_log:
-                log_entries.append({
-                    "command": cmd.command,
-                    "output": cmd.output,
-                    "exit_code": cmd.exit_code,
-                    "success": cmd.success,
-                    "timestamp": cmd.timestamp or datetime.utcnow().isoformat(),
-                    "host": cmd.host
-                })
-            execution.command_log = log_entries
-            db.commit()
+    # The server-side execution log is authoritative. Never replace it with
+    # client-supplied history during completion.
+    execution = db.query(ExecutionRecord).filter(
+        ExecutionRecord.work_package_id == work_package_id
+    ).order_by(ExecutionRecord.started_at.desc()).first()
 
     try:
         completed_package = await service.complete_execution(work_package_id)
@@ -326,8 +202,12 @@ async def test_remote_connection(
 @router.post("/remote/execute")
 async def execute_remote_command(
     request: RemoteCommandRequest,
+    db: Session = Depends(get_db),
 ):
     """Execute a command on a remote host via SSH or WinRM"""
+    work_package = _get_authorized_work_package(
+        db, request.work_package_id, is_rollback=request.is_rollback
+    )
     config = ConnectionConfig(
         host=request.host,
         port=request.port,
@@ -347,6 +227,7 @@ async def execute_remote_command(
             )
 
         result = executor.execute(request.command, timeout=request.timeout)
+        _record_remote_result(db, work_package, request, result)
 
         return {
             "success": result.success,
@@ -364,8 +245,12 @@ async def execute_remote_command(
 @router.post("/remote/execute-script")
 async def execute_remote_script(
     request: RemoteCommandRequest,
+    db: Session = Depends(get_db),
 ):
     """Execute a multi-line script on a remote host"""
+    work_package = _get_authorized_work_package(
+        db, request.work_package_id, is_rollback=request.is_rollback
+    )
     config = ConnectionConfig(
         host=request.host,
         port=request.port,
@@ -385,6 +270,7 @@ async def execute_remote_script(
             )
 
         result = executor.execute_script(request.command, timeout=request.timeout)
+        _record_remote_result(db, work_package, request, result)
 
         return {
             "success": result.success,
@@ -398,164 +284,3 @@ async def execute_remote_script(
         executor.disconnect()
 
 
-@router.post("/local/execute")
-async def execute_local_command(
-    command: str,
-    timeout: int = 300,
-):
-    """Execute a command locally (for testing)"""
-    executor = LocalExecutor()
-    result = executor.execute(command, timeout=timeout)
-
-    return {
-        "success": result.success,
-        "exit_code": result.exit_code,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-        "command": command,
-    }
-
-
-class ScriptExecutionRequest(BaseModel):
-    """Request to create and execute script remotely"""
-    work_package_id: str
-    host: str
-    port: int = 22
-    username: str
-    password: str = ""
-    private_key: str = ""
-    connection_type: str = "ssh"
-    script_content: str
-    change_type: str = "server"
-    variables: dict = {}
-    dry_run: bool = False
-    timeout: int = 600
-
-
-@router.post("/script/create-and-execute")
-async def create_and_execute_script(
-    request: ScriptExecutionRequest,
-    db: Session = Depends(get_db),
-):
-    """Create script on remote host and execute it"""
-    from app.services.script_manager import script_manager
-
-    config = ConnectionConfig(
-        host=request.host,
-        port=request.port,
-        username=request.username,
-        password=request.password,
-        private_key=request.private_key if request.private_key else None,
-        connection_type=request.connection_type,
-    )
-
-    result = await script_manager.create_and_execute(
-        connection=config,
-        script_content=request.script_content,
-        work_package_id=request.work_package_id,
-        change_type=request.change_type,
-        variables=request.variables,
-        dry_run=request.dry_run
-    )
-
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Execution failed"))
-
-    return result
-
-
-class ScriptCreateRequest(BaseModel):
-    """Request to create script on remote host"""
-    work_package_id: str
-    host: str
-    port: int = 22
-    username: str
-    password: str = ""
-    private_key: str = ""
-    connection_type: str = "ssh"
-    script_content: str
-    change_type: str = "server"
-    variables: dict = {}
-
-
-@router.post("/script/create")
-async def create_remote_script(
-    request: ScriptCreateRequest,
-):
-    """Create script file on remote host without executing"""
-    from app.services.script_manager import script_manager
-
-    config = ConnectionConfig(
-        host=request.host,
-        port=request.port,
-        username=request.username,
-        password=request.password,
-        private_key=request.private_key if request.private_key else None,
-        connection_type=request.connection_type,
-    )
-
-    # Prepare script
-    extension = "ps1" if request.connection_type == "winrm" else "sh"
-    filename = script_manager.generate_script_filename(
-        request.work_package_id,
-        request.change_type,
-        extension
-    )
-
-    prepared_script = script_manager.prepare_script_content(
-        request.script_content,
-        request.change_type,
-        request.variables,
-        request.connection_type
-    )
-
-    result = await script_manager.create_remote_script(
-        config,
-        prepared_script,
-        filename
-    )
-
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Script creation failed"))
-
-    return result
-
-
-class ScriptExecuteRequest(BaseModel):
-    """Request to execute existing script on remote host"""
-    host: str
-    port: int = 22
-    username: str
-    password: str = ""
-    private_key: str = ""
-    connection_type: str = "ssh"
-    script_path: str
-    timeout: int = 600
-
-
-@router.post("/script/execute")
-async def execute_existing_script(
-    request: ScriptExecuteRequest,
-):
-    """Execute an existing script on remote host"""
-    from app.services.script_manager import script_manager
-
-    config = ConnectionConfig(
-        host=request.host,
-        port=request.port,
-        username=request.username,
-        password=request.password,
-        private_key=request.private_key if request.private_key else None,
-        connection_type=request.connection_type,
-    )
-
-    result = await script_manager.execute_remote_script(
-        config,
-        request.script_path,
-        request.timeout
-    )
-
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Execution failed"))
-
-    return result

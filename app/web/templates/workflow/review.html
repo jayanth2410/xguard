@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Review Queue - Maker-Checker Platform{% endblock %}
+{% block title %}Review Queue - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="reviewQueue()" x-init="loadQueue()">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Review Queue</h1>
-        <p class="text-gray-600 mt-2">Work packages awaiting human review</p>
+    <div class="mb-4">
+        <h1 class="text-2xl font-bold text-gray-900">Review Queue</h1>
+        <p class="text-sm text-gray-600 mt-1">Work packages awaiting human review.</p>
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div class="bg-white border border-amber-200 rounded-md shadow-sm p-3">
             <div class="flex items-center">
                 <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,7 +25,7 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white border border-blue-200 rounded-md shadow-sm p-3">
             <div class="flex items-center">
                 <div class="p-3 rounded-full bg-blue-100 text-blue-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +40,7 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white border border-green-200 rounded-md shadow-sm p-3">
             <div class="flex items-center">
                 <div class="p-3 rounded-full bg-green-100 text-green-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,9 +56,10 @@
     </div>
 
     <!-- Review Queue Table -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold">Pending Reviews</h2>
+    <div class="bg-white border border-blue-200 rounded-md shadow-sm overflow-hidden">
+        <div class="px-3 py-2 bg-blue-50 border-b border-blue-200 flex justify-between">
+            <h2 class="text-sm font-semibold text-blue-900">Pending Reviews</h2>
+            <span class="text-xs text-blue-700" x-text="packages.length + ' records'"></span>
         </div>
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -75,25 +76,25 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 <template x-for="pkg in packages" :key="pkg.id">
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600" x-text="pkg.ticket_id"></td>
-                        <td class="px-6 py-4 text-sm text-gray-900" x-text="pkg.title"></td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 whitespace-nowrap text-sm font-medium text-blue-700" x-text="pkg.ticket_id"></td>
+                        <td class="px-3 py-2.5 text-sm text-gray-900" x-text="pkg.title"></td>
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize" x-text="pkg.change_type"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full uppercase"
                                   :class="getRiskClass(pkg.risk_level)"
                                   x-text="pkg.risk_level"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full"
                                   :class="pkg.status === 'pending_review' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'"
                                   x-text="pkg.status === 'pending_review' ? 'Pending' : 'In Review'"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(pkg.created_at)"></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <td class="px-3 py-2.5 whitespace-nowrap text-xs text-gray-500" x-text="formatDate(pkg.created_at)"></td>
+                        <td class="px-3 py-2.5 whitespace-nowrap text-sm">
                             <a :href="'/workflow/review/' + pkg.id"
-                               class="inline-flex items-center px-3 py-1 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
+                               class="inline-flex items-center px-2.5 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
                                 Review
                             </a>
                         </td>
@@ -134,8 +135,9 @@ function reviewQueue() {
                 if (response.ok) {
                     const data = await response.json();
                     this.packages = data.items || [];
-                    this.pendingCount = this.packages.filter(p => p.status === 'pending_review').length;
-                    this.inReviewCount = this.packages.filter(p => p.status === 'in_review').length;
+                    this.pendingCount = data.stats?.pending || 0;
+                    this.inReviewCount = data.stats?.in_review || 0;
+                    this.reviewedTodayCount = data.stats?.reviewed_today || 0;
                 }
             } catch (error) {
                 console.error('Failed to load review queue:', error);

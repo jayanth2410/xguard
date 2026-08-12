@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api import api_router
 from app.models.database import Base
-from app.core.database import engine
+from app.core.database import engine, ensure_work_package_ai_columns
 
 
 @asynccontextmanager
@@ -14,6 +14,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
+    ensure_work_package_ai_columns()
     yield
     # Shutdown: cleanup if needed
 
@@ -22,16 +23,15 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="""
-    ## Maker-Checker Enterprise Workflow Platform
+    ## XGuard Enterprise Change Workflow
 
-    A comprehensive platform for managing IT changes with AI-assisted creation,
-    human review, dynamic validation, and controlled execution.
+    Manage IT changes with AI-assisted preparation, human review, and
+    controlled execution.
 
     ### Key Features:
-    - **AI Maker**: Intelligent agents that analyze requirements and generate implementations
-    - **Human Checker**: Expert review and approval workflow
-    - **Validation Agent**: Dynamic context-aware pre-execution validation
-    - **Executor**: Controlled change execution with JIT verification and rollback
+    - **AI preparation**: Clarification questions, implementation, and rollback generation
+    - **Human review**: Approval, rejection, and rework decisions
+    - **Controlled execution**: SSH/WinRM execution with recorded results and rollback
 
     ### Change Types Supported:
     - Network (Firewall, Router, Switch)

@@ -1,6 +1,4 @@
 """ServiceNow Integration API endpoints"""
-from typing import Optional
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,31 +17,6 @@ class ImportRecordRequest(BaseModel):
     record_number: str
     record_type: str = "incident"  # incident, change_request, request
     change_type: ChangeType
-
-
-class CreateChangeRequest(BaseModel):
-    """Request to create a change request in ServiceNow"""
-    short_description: str
-    description: str = ""
-    category: str = "Other"
-    priority: str = "3"
-    risk: str = "moderate"
-    impact: str = "medium"
-
-
-@router.get("/config")
-async def get_servicenow_config():
-    """Get current ServiceNow configuration (for debugging)"""
-    from app.core.config import settings
-    return {
-        "instance": settings.SERVICENOW_INSTANCE,
-        "username": settings.SERVICENOW_USERNAME,
-        "password": "***" if settings.SERVICENOW_PASSWORD else "(empty)",
-        "incident_table": settings.SERVICENOW_INCIDENT_TABLE,
-        "change_table": settings.SERVICENOW_CHANGE_TABLE,
-        "request_table": settings.SERVICENOW_REQUEST_TABLE,
-        "enabled": settings.SERVICENOW_ENABLED,
-    }
 
 
 @router.get("/test-connection")
@@ -133,29 +106,6 @@ async def get_change_request(change_number: str):
     return change
 
 
-@router.post("/changes/create")
-async def create_change_request(request: CreateChangeRequest):
-    """Create a new change request in ServiceNow"""
-    result = await servicenow.create_change_request(
-        short_description=request.short_description,
-        description=request.description,
-        category=request.category,
-        priority=request.priority,
-        risk=request.risk,
-        impact=request.impact
-    )
-
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to create change request")
-
-    return {
-        "success": True,
-        "number": result.get("number"),
-        "sys_id": result.get("sys_id"),
-        "message": f"Change request {result.get('number')} created successfully"
-    }
-
-
 # ============ SERVICE REQUESTS ============
 
 @router.get("/requests")
@@ -218,7 +168,12 @@ async def import_record_as_work_package(
         title=wp_data["title"],
         description=wp_data["description"],
         change_type=request.change_type,
-        trigger_source=trigger_source
+        trigger_source=trigger_source,
+        variables={
+            "servicenow": wp_data.get("servicenow_details", {}),
+            "servicenow_sys_id": wp_data.get("servicenow_sys_id", ""),
+            "record_type": request.record_type,
+        },
     )
 
     service = MakerService(db)
@@ -244,48 +199,3 @@ async def import_record_as_work_package(
     }
 
 
-@router.post("/records/{sys_id}/approve")
-async def approve_record(
-    sys_id: str,
-    record_type: str = "change_request",
-    notes: str = ""
-):
-    """Mark record as approved in ServiceNow"""
-    table_type = SNTableType.CHANGE_REQUEST if record_type == "change_request" else SNTableType.INCIDENT
-
-    result = await servicenow.update_approval_status(sys_id, "approved", notes, table_type)
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to update ServiceNow")
-    return {"success": True, "message": "Record approved in ServiceNow"}
-
-
-@router.post("/records/{sys_id}/reject")
-async def reject_record(
-    sys_id: str,
-    record_type: str = "change_request",
-    notes: str = ""
-):
-    """Mark record as rejected in ServiceNow"""
-    table_type = SNTableType.CHANGE_REQUEST if record_type == "change_request" else SNTableType.INCIDENT
-
-    result = await servicenow.update_approval_status(sys_id, "rejected", notes, table_type)
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to update ServiceNow")
-    return {"success": True, "message": "Record rejected in ServiceNow"}
-
-
-@router.post("/records/{sys_id}/work-notes")
-async def add_work_notes(
-    sys_id: str,
-    notes: str,
-    record_type: str = "incident"
-):
-    """Add work notes to ServiceNow record"""
-    table_type = SNTableType.INCIDENT if record_type == "incident" else \
-                 SNTableType.CHANGE_REQUEST if record_type == "change_request" else \
-                 SNTableType.REQUEST
-
-    result = await servicenow.add_work_notes(sys_id, notes, table_type)
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to add work notes")
-    return {"success": True, "message": "Work notes added"}

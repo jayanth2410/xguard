@@ -30,7 +30,7 @@ class UUID(TypeDecorator):
 
 from app.models.enums import (
     ChangeType, WorkflowStatus, ExecutionMode,
-    RiskLevel, TriggerSource, ValidationQuestionType
+    RiskLevel, TriggerSource
 )
 
 
@@ -85,6 +85,11 @@ class WorkPackage(Base):
     pre_checks = Column(JSON)  # Pre-execution checks
     post_checks = Column(JSON)  # Post-execution validation
     variables = Column(JSON)  # Variables like host/IP
+    ai_questions = Column(JSON, default=list)  # Pre-review clarification questions
+    ai_question_responses = Column(JSON, default=list)  # Answers keyed by question_key
+    tokens_used = Column(Integer, nullable=False, default=0)  # Cumulative AI tokens
+    monthly_tokens_used = Column(Integer, nullable=False, default=0)
+    token_usage_month = Column(String(7))  # UTC YYYY-MM bucket
 
     # Target information
     target_infrastructure = Column(JSON)  # Infrastructure targets
@@ -108,7 +113,6 @@ class WorkPackage(Base):
     assigned_checker = relationship("User", foreign_keys=[assigned_checker_id])
     steps = relationship("WorkPackageStep", back_populates="work_package", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="work_package", cascade="all, delete-orphan")
-    validation_sessions = relationship("ValidationSession", back_populates="work_package", cascade="all, delete-orphan")
     execution_records = relationship("ExecutionRecord", back_populates="work_package", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="work_package", cascade="all, delete-orphan")
 
@@ -144,6 +148,7 @@ class Review(Base):
     decision = Column(String(50), nullable=False)  # approved, rejected, rework_required
     comments = Column(Text)
     code_review_notes = Column(Text)
+    rollback_review_notes = Column(Text)
     security_review_notes = Column(Text)
     impact_review_notes = Column(Text)
 
@@ -157,68 +162,6 @@ class Review(Base):
     # Relationships
     work_package = relationship("WorkPackage", back_populates="reviews")
     reviewer = relationship("User", back_populates="reviews")
-
-
-class ValidationSession(Base):
-    """Execution validation session with Q&A"""
-    __tablename__ = "validation_sessions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    work_package_id = Column(UUID(as_uuid=True), ForeignKey("work_packages.id"), nullable=False)
-
-    # Session status
-    status = Column(String(50), default="in_progress")  # in_progress, completed, failed
-    all_questions_answered = Column(Boolean, default=False)
-
-    # Timestamps
-    started_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime)
-
-    # Relationships
-    work_package = relationship("WorkPackage", back_populates="validation_sessions")
-    questions = relationship("ValidationQuestion", back_populates="session", cascade="all, delete-orphan")
-    responses = relationship("ValidationResponse", back_populates="session", cascade="all, delete-orphan")
-
-
-class ValidationQuestion(Base):
-    """Dynamic validation questions based on change type"""
-    __tablename__ = "validation_questions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("validation_sessions.id"), nullable=False)
-
-    # Question details
-    question_key = Column(String(100), nullable=False)  # Unique key for the question
-    question_text = Column(Text, nullable=False)
-    question_type = Column(SQLEnum(ValidationQuestionType), default=ValidationQuestionType.TEXT)
-    category = Column(String(50))  # network, server, database, common, etc.
-    is_required = Column(Boolean, default=True)
-    options = Column(JSON)  # For select/multi-select questions
-    order = Column(Integer, default=0)
-
-    # Relationships
-    session = relationship("ValidationSession", back_populates="questions")
-
-
-class ValidationResponse(Base):
-    """Responses to validation questions"""
-    __tablename__ = "validation_responses"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("validation_sessions.id"), nullable=False)
-    question_id = Column(UUID(as_uuid=True), ForeignKey("validation_questions.id"), nullable=False)
-
-    # Response
-    response_text = Column(Text)
-    response_data = Column(JSON)  # Structured response data
-    responded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-
-    # Timestamps
-    responded_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    session = relationship("ValidationSession", back_populates="responses")
-    question = relationship("ValidationQuestion")
 
 
 class ExecutionRecord(Base):

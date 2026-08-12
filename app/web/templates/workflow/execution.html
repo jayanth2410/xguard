@@ -1,60 +1,60 @@
 {% extends "base.html" %}
 
-{% block title %}Execute Change - Maker-Checker Platform{% endblock %}
+{% block title %}Execute Change - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="executionPage('{{ work_package_id }}')" x-init="loadData()">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Execute Change</h1>
-        <p class="text-gray-600 mt-2">Execute the validated change with JIT verification</p>
+    <div class="mb-4">
+        <h1 class="text-xl font-semibold text-gray-900">Execute Change</h1>
+        <p class="text-sm text-gray-500">Connect, verify, execute, and record the approved change.</p>
     </div>
 
     <!-- Work Package Summary -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="bg-blue-50/40 border border-blue-200 rounded-md shadow-sm p-4 mb-4">
         <div class="flex justify-between items-start">
             <div>
-                <h2 class="text-xl font-semibold" x-text="pkg.title"></h2>
-                <p class="text-gray-600 mt-1">
+                <h2 class="text-base font-semibold text-blue-900" x-text="pkg.title"></h2>
+                <p class="text-sm text-gray-600 mt-1">
                     <span x-text="'Ticket: ' + pkg.ticket_id"></span> |
                     <span class="capitalize" x-text="pkg.change_type"></span>
                 </p>
             </div>
-            <span class="px-3 py-1 rounded-full text-sm"
+            <span class="px-2 py-1 rounded text-xs font-medium"
                   :class="pkg.execution_mode === 'automated' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
                   x-text="pkg.execution_mode === 'automated' ? 'Automated' : 'Manual'"></span>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="flex flex-col gap-4">
         <!-- Connection Settings -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold mb-4">Remote Connection</h3>
+        <div class="bg-sky-50/30 border border-sky-200 rounded-md shadow-sm p-4">
+            <h3 class="text-sm font-semibold text-sky-900 mb-3">Remote Connection</h3>
 
-            <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 [&_label]:text-xs [&_input]:text-sm [&_input]:py-1.5">
                 <!-- Connection Type -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Connection Type</label>
+                <div class="lg:col-span-6 flex items-center gap-4 border-b border-sky-100 pb-2">
+                    <label class="text-xs font-medium text-gray-700">Connection Type</label>
                     <div class="flex space-x-4">
                         <label class="flex items-center">
-                            <input type="radio" x-model="connection.type" value="ssh" class="mr-2">
+                            <input type="radio" x-model="connection.type" @change="connection.port = 22" value="ssh" class="mr-2">
                             <span>SSH (Linux/Unix)</span>
                         </label>
                         <label class="flex items-center">
-                            <input type="radio" x-model="connection.type" value="winrm" class="mr-2">
+                            <input type="radio" x-model="connection.type" @change="connection.port = 5985" value="winrm" class="mr-2">
                             <span>WinRM (Windows)</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Host -->
-                <div>
+                <div class="lg:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Host/IP</label>
                     <div class="flex space-x-2">
                         <input type="text" x-model="connection.host"
                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md"
                                placeholder="192.168.1.100">
                         <button @click="loadServiceNowCI" type="button"
-                                class="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+                                class="px-2 py-1.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                                 title="Load from ServiceNow CI">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -92,14 +92,14 @@
 
                 <!-- Test Connection -->
                 <button @click="testConnection"
-                        class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                        class="self-start mt-5 px-3 py-2 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                         :disabled="connecting">
                     <span x-show="!connecting">Test Connection</span>
                     <span x-show="connecting">Connecting...</span>
                 </button>
 
                 <!-- Connection Status -->
-                <div x-show="connectionStatus" class="p-3 rounded-md text-sm"
+                <div x-show="connectionStatus" class="lg:col-span-6 p-2 rounded text-xs"
                      :class="connectionStatus === 'connected' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
                     <span x-text="connectionMessage"></span>
                 </div>
@@ -107,19 +107,28 @@
         </div>
 
         <!-- Terminal -->
-        <div class="lg:col-span-2 bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold">Terminal</h3>
+        <div class="bg-white border border-blue-200 rounded-md shadow-sm overflow-hidden lg:grid lg:grid-cols-2">
+            <div class="px-4 py-2 bg-blue-50 border-b border-blue-200 flex justify-between items-center lg:col-span-2">
+                <div><h3 class="text-sm font-semibold text-blue-900">Execution Console</h3><p class="text-xs text-blue-600">Run approved commands and monitor results in one workspace.</p></div>
                 <div class="flex space-x-2">
-                    <button @click="clearTerminal" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">Clear</button>
-                    <button @click="loadGeneratedCode" class="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
+                    <button @click="clearTerminal" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-white">Clear</button>
+                    <button @click="loadGeneratedCode" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
                         Load Generated Code
                     </button>
                 </div>
             </div>
 
+            <div class="px-3 py-2 bg-slate-100 border-b border-r border-slate-200 lg:col-start-1 lg:row-start-2 flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-700">Live Terminal</span>
+                <span class="text-xs" :class="connectionStatus === 'connected' ? 'text-green-600' : 'text-slate-400'" x-text="connectionStatus === 'connected' ? 'Connected' : 'Not connected'"></span>
+            </div>
+            <div class="px-3 py-2 bg-blue-50 border-b border-blue-100 lg:col-start-2 lg:row-start-2 flex items-center justify-between">
+                <span class="text-xs font-semibold text-blue-900">Approved Script</span>
+                <span class="text-xs text-blue-600" x-text="scriptSteps.length ? scriptSteps.length + ' steps parsed' : 'Not parsed'"></span>
+            </div>
+
             <!-- Terminal Output -->
-            <div class="bg-gray-900 text-gray-100 p-4 font-mono text-sm h-80 overflow-y-auto" id="terminal-output">
+            <div class="bg-gray-900 text-gray-100 p-3 font-mono text-xs h-80 overflow-y-auto lg:col-start-1 lg:row-start-3" id="terminal-output">
                 <template x-for="(line, index) in terminalLines" :key="index">
                     <div :class="line.type === 'error' ? 'text-red-400' : line.type === 'success' ? 'text-green-400' : line.type === 'command' ? 'text-yellow-400' : 'text-gray-100'">
                         <span x-text="line.text"></span>
@@ -129,16 +138,16 @@
             </div>
 
             <!-- Command Input -->
-            <div class="p-4 border-t border-gray-200">
+            <div class="p-3 border-t border-r border-gray-200 bg-slate-50 lg:col-start-1 lg:row-start-4">
                 <div class="flex space-x-2">
                     <span class="text-gray-500 py-2">$</span>
                     <input type="text" x-model="currentCommand"
-                           @keydown.enter="executeCommand"
-                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md font-mono"
+                           @keydown.enter.prevent="executeCommand"
+                           class="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded font-mono"
                            placeholder="Enter command..."
                            :disabled="executing">
-                    <button @click="executeCommand"
-                            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                    <button type="button" @click="executeCommand"
+                            class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
                             :disabled="!connection.host || !connection.username || executing">
                         Execute
                     </button>
@@ -146,40 +155,47 @@
             </div>
 
             <!-- Script Execution -->
-            <div class="p-4 border-t border-gray-200">
+            <div class="p-3 border-l border-blue-100 bg-blue-50/30 lg:col-start-2 lg:row-start-3 lg:row-span-2">
                 <div class="flex justify-between items-center mb-2">
                     <label class="block text-sm font-medium text-gray-700">Execute Script (multi-line)</label>
                     <button @click="parseScriptSteps"
-                            class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                            class="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
                             :disabled="!scriptContent">
                         Parse into Steps
                     </button>
                 </div>
-                <textarea x-model="scriptContent" rows="6"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"
+                <textarea x-model="scriptContent" rows="12"
+                          class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs min-h-64"
                           placeholder="#!/bin/bash&#10;echo 'Hello World'"></textarea>
                 <div class="mt-2 flex justify-end space-x-2">
                     <label class="flex items-center text-sm">
                         <input type="checkbox" x-model="dryRun" class="mr-2">
                         Dry Run (simulate only)
                     </label>
-                    <button @click="executeScript"
-                            class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                    <button x-show="scriptSteps.length === 0" @click="executeScript"
+                            class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
                             :disabled="!connection.host || !scriptContent || executing">
-                        Execute All
+                        Execute Script
                     </button>
                 </div>
             </div>
 
             <!-- Step-by-Step Execution -->
-            <div x-show="scriptSteps.length > 0" class="p-4 border-t border-gray-200">
-                <h4 class="text-sm font-medium text-gray-700 mb-3">Step-by-Step Execution</h4>
-                <div class="space-y-2 max-h-48 overflow-y-auto">
+            <div x-show="scriptSteps.length > 0" class="p-3 border-t border-blue-200 bg-slate-50 lg:col-span-2 lg:row-start-5">
+                <div class="flex items-center justify-between mb-3">
+                    <div><h4 class="text-sm font-semibold text-slate-800">Execution Plan</h4><p class="text-xs text-slate-500">Review and run parsed commands individually or in sequence.</p></div>
+                    <span class="text-xs font-medium text-blue-700"><span x-text="scriptSteps.filter(s => s.executed).length"></span> / <span x-text="scriptSteps.length"></span> completed</span>
+                </div>
+                <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
                     <template x-for="(step, index) in scriptSteps" :key="index">
-                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border"
-                             :class="step.executed ? 'border-green-300 bg-green-50' : step.failed ? 'border-red-300 bg-red-50' : ''">
+                        <div class="flex items-center justify-between p-2 rounded border"
+                             :class="step.executed ? 'border-green-300 bg-green-50' : step.failed ? 'border-red-300 bg-red-50' : isStepLocked(index) ? 'border-slate-200 bg-slate-100 opacity-60' : 'border-blue-300 bg-white ring-1 ring-blue-100'">
                             <div class="flex-1 min-w-0">
-                                <span class="text-xs text-gray-500" x-text="'Step ' + (index + 1)"></span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-medium text-gray-600" x-text="'Step ' + (index + 1)"></span>
+                                    <span class="text-[11px]" :class="step.executed ? 'text-green-700' : step.failed ? 'text-red-700' : isStepLocked(index) ? 'text-slate-500' : 'text-blue-700'"
+                                          x-text="step.executed ? 'Completed' : step.failed ? 'Failed' : isStepLocked(index) ? 'Locked' : 'Ready'"></span>
+                                </div>
                                 <p class="text-sm font-mono truncate" x-text="step.command"></p>
                             </div>
                             <div class="flex items-center space-x-2 ml-2">
@@ -187,7 +203,7 @@
                                 <span x-show="step.failed" class="text-red-600 text-sm">✗</span>
                                 <button @click="executeStep(index)"
                                         class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        :disabled="executing || step.executed"
+                                        :disabled="executing || step.executed || isStepLocked(index)"
                                         x-show="!step.executed && !step.failed">
                                     Run
                                 </button>
@@ -201,18 +217,15 @@
                         </div>
                     </template>
                 </div>
-                <div class="mt-3 flex justify-between items-center">
-                    <span class="text-sm text-gray-600">
-                        Progress: <span x-text="scriptSteps.filter(s => s.executed).length"></span> / <span x-text="scriptSteps.length"></span>
-                    </span>
+                <div class="mt-3 flex justify-end items-center">
                     <div class="space-x-2">
                         <button @click="executeAllSteps"
-                                class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                                class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                                 :disabled="executing || scriptSteps.every(s => s.executed)">
                             Run Remaining
                         </button>
                         <button @click="resetSteps"
-                                class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">
+                                class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">
                             Reset
                         </button>
                     </div>
@@ -222,33 +235,36 @@
     </div>
 
     <!-- Rollback Section -->
-    <div x-show="hasFailure || rollbackInitiated" class="mt-6 bg-red-50 border border-red-200 rounded-lg shadow p-6">
+    <div x-show="hasFailure || rollbackInitiated" class="mt-4 bg-red-50 border border-red-200 rounded-md shadow-sm p-4">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center">
                 <svg class="h-6 w-6 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
-                <h3 class="text-lg font-semibold text-red-800">Execution Failed - Rollback Required</h3>
+                <h3 class="text-sm font-semibold text-red-800">Execution Failed — Rollback Required</h3>
             </div>
-            <span class="px-3 py-1 rounded-full text-sm"
-                  :class="rollbackStatus === 'completed' ? 'bg-green-100 text-green-800' : rollbackStatus === 'in_progress' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
-                  x-text="rollbackStatus === 'completed' ? 'Rolled Back' : rollbackStatus === 'in_progress' ? 'Rolling Back...' : 'Pending Rollback'">
-            </span>
+            <div class="inline-flex items-center gap-2 text-xs font-medium"
+                 :class="rollbackStatus === 'completed' ? 'text-green-700' : rollbackStatus === 'in_progress' ? 'text-amber-700' : 'text-red-700'">
+                <span class="h-2 w-2 rounded-full"
+                      :class="rollbackStatus === 'completed' ? 'bg-green-500' : rollbackStatus === 'in_progress' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'"></span>
+                <span x-text="rollbackStatus === 'completed' ? 'Rollback completed' : rollbackStatus === 'in_progress' ? 'Rollback in progress' : 'Rollback pending'"></span>
+            </div>
         </div>
 
-        <p class="text-red-700 mb-4">One or more steps failed. Execute the rollback procedure to restore the system to its previous state.</p>
+        <p class="text-sm text-red-700 mb-3">One or more steps failed. Execute the rollback procedure to restore the previous state.</p>
 
         <!-- Rollback Procedure Display -->
         <div class="mb-4">
             <div class="flex justify-between items-center mb-2">
                 <label class="block text-sm font-medium text-red-800">Rollback Procedure</label>
                 <button @click="parseRollbackSteps"
-                        class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-red-300 bg-white text-red-700 rounded hover:bg-red-50"
                         :disabled="!pkg.rollback_procedure || rollbackSteps.length > 0">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
                     Parse into Steps
                 </button>
             </div>
-            <pre class="bg-white border border-red-200 rounded p-3 text-sm font-mono max-h-40 overflow-y-auto"
+            <pre class="bg-gray-900 text-gray-100 border border-red-300 rounded p-3 text-xs font-mono max-h-48 overflow-y-auto"
                  x-text="pkg.rollback_procedure || 'No rollback procedure defined'"></pre>
         </div>
 
@@ -288,29 +304,31 @@
         </div>
 
         <!-- Rollback Actions -->
-        <div class="flex space-x-3">
-            <button @click="executeFullRollback"
-                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                    :disabled="executing || !pkg.rollback_procedure || rollbackStatus === 'completed'">
-                <span x-show="!executing">Execute Full Rollback</span>
-                <span x-show="executing">Executing...</span>
-            </button>
-            <button @click="executeAllRollbackSteps"
-                    x-show="rollbackSteps.length > 0"
-                    class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
-                    :disabled="executing || rollbackSteps.every(s => s.executed)">
-                Run Remaining Rollback Steps
-            </button>
+        <div class="flex items-center justify-between gap-3">
             <button @click="skipRollback"
-                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    class="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900"
                     :disabled="executing">
                 Skip Rollback (Not Recommended)
             </button>
+            <div class="flex items-center justify-end gap-2">
+                <button @click="executeAllRollbackSteps"
+                        x-show="rollbackSteps.length > 0"
+                        class="px-3 py-1.5 text-xs font-medium border border-amber-300 bg-white text-amber-700 rounded hover:bg-amber-50"
+                        :disabled="executing || rollbackSteps.every(s => s.executed)">
+                    Run Remaining Steps
+                </button>
+                <button @click="executeFullRollback"
+                        class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+                        :disabled="executing || !pkg.rollback_procedure || rollbackStatus === 'completed'">
+                    <span x-show="!executing">Execute Full Rollback</span>
+                    <span x-show="executing">Executing...</span>
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Execution Actions -->
-    <div class="mt-6 bg-white rounded-lg shadow p-6">
+    <div class="mt-4 bg-blue-50/30 border border-blue-200 rounded-md shadow-sm p-4">
         <div class="flex items-center justify-between">
             <div>
                 <h3 class="font-semibold">Execution Status</h3>
@@ -326,11 +344,11 @@
                     Move to Review in ServiceNow
                 </label>
                 <a :href="'/work-packages/' + pkg.id"
-                   class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                   class="px-2.5 py-1.5 text-xs border border-gray-300 rounded hover:bg-white">
                     Back to Work Package
                 </a>
                 <button @click="markComplete"
-                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                        class="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
                         :disabled="commandHistory.length === 0 || completing">
                     <span x-show="!completing">Mark as Complete</span>
                     <span x-show="completing">Completing...</span>
@@ -354,11 +372,11 @@
         </div>
     </div>
 
-    <!-- Message -->
-    <div x-show="message" x-cloak
-         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-         class="mt-4 p-4 rounded-md">
-        <span x-text="message"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 shadow-lg"
+         :class="messageType === 'success' ? 'border-green-300' : messageType === 'warning' ? 'border-amber-300' : messageType === 'info' ? 'border-blue-300' : 'border-red-300'">
+        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : messageType === 'warning' ? 'bg-amber-500' : messageType === 'info' ? 'bg-blue-500' : 'bg-red-500'"></span>
+        <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : messageType === 'warning' ? 'text-amber-800' : messageType === 'info' ? 'text-blue-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Execution complete' : messageType === 'warning' ? 'Attention required' : messageType === 'info' ? 'Information' : 'Execution issue'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
+        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -380,7 +398,7 @@ function executionPage(workPackageId) {
         connectionStatus: '',
         connectionMessage: '',
         terminalLines: [
-            { text: '=== Maker-Checker Remote Execution Terminal ===', type: 'info' },
+            { text: '=== XGuard Remote Execution Terminal ===', type: 'info' },
             { text: 'Host/IP will be auto-filled from ServiceNow CI if available.', type: 'info' },
             { text: 'Scripts are created as files on remote server before execution.', type: 'info' },
             { text: 'Use "Parse into Steps" to execute code step by step.', type: 'info' },
@@ -496,16 +514,25 @@ function executionPage(workPackageId) {
         },
 
         async executeCommand() {
-            if (!this.currentCommand.trim()) return;
+            const command = this.currentCommand.trim();
+            if (!command) {
+                this.message = 'Enter a command before clicking Execute.';
+                this.messageType = 'warning';
+                return;
+            }
+            if (!this.connection.host || !this.connection.username) {
+                this.message = 'Enter the host and username before executing a command.';
+                this.messageType = 'warning';
+                return;
+            }
 
-            const command = this.currentCommand;
-            this.currentCommand = '';
             this.executing = true;
 
             this.addTerminalLine(`$ ${command}`, 'command');
 
             if (this.dryRun) {
                 this.addTerminalLine('[DRY RUN] Command would be executed: ' + command, 'info');
+                this.currentCommand = '';
                 this.executing = false;
                 return;
             }
@@ -519,12 +546,25 @@ function executionPage(workPackageId) {
                         port: parseInt(this.connection.port),
                         username: this.connection.username,
                         password: this.connection.password,
+                        private_key: '',
                         connection_type: this.connection.type,
-                        command: command
+                        work_package_id: this.workPackageId,
+                        command: command,
+                        timeout: 300,
+                        is_rollback: false,
+                        rollback_complete: false
                     })
                 });
 
                 const data = await response.json();
+
+                if (!response.ok) {
+                    const detail = data.detail || `Command execution failed (${response.status})`;
+                    this.addTerminalLine(detail, 'error');
+                    this.message = detail;
+                    this.messageType = 'error';
+                    return;
+                }
 
                 if (data.stdout) {
                     data.stdout.split('\n').forEach(line => {
@@ -541,20 +581,22 @@ function executionPage(workPackageId) {
                 this.addTerminalLine(`Exit code: ${data.exit_code}`, data.success ? 'success' : 'error');
 
                 // Log command to API
-                await this.logCommand(command, data);
 
                 this.commandHistory.push({
                     command,
                     result: data,
                     timestamp: new Date().toLocaleTimeString()
                 });
+                this.currentCommand = '';
 
             } catch (error) {
                 this.addTerminalLine('Error executing command: ' + error.message, 'error');
+                this.message = 'Could not execute the command: ' + error.message;
+                this.messageType = 'error';
+            } finally {
+                this.executing = false;
+                this.scrollTerminal();
             }
-
-            this.executing = false;
-            this.scrollTerminal();
         },
 
         async executeScript() {
@@ -585,6 +627,7 @@ function executionPage(workPackageId) {
                         username: this.connection.username,
                         password: this.connection.password,
                         connection_type: this.connection.type,
+                        work_package_id: this.workPackageId,
                         command: this.scriptContent,
                         timeout: 600
                     })
@@ -610,10 +653,11 @@ function executionPage(workPackageId) {
                     this.hasFailure = true;
                     this.addTerminalLine(`=== Script failed with exit code: ${data.exit_code} ===`, 'error');
                     this.addTerminalLine('Rollback may be required. See Rollback section below.', 'error');
+                    this.message = `Execution failed with exit code ${data.exit_code}. The work package was not completed. Review the error and run the rollback procedure.`;
+                    this.messageType = 'error';
                 }
 
                 // Log script execution to API
-                await this.logCommand('[FULL SCRIPT]', data);
 
                 this.commandHistory.push({
                     command: '[FULL SCRIPT]',
@@ -727,9 +771,18 @@ function executionPage(workPackageId) {
             this.addTerminalLine(`Parsed script into ${steps.length} executable steps`, 'success');
         },
 
+        isStepLocked(index) {
+            if (index === 0) return false;
+            return this.scriptSteps.slice(0, index).some(step => !step.executed);
+        },
+
         async executeStep(index) {
             const step = this.scriptSteps[index];
             if (!step || step.executed) return;
+            if (this.isStepLocked(index)) {
+                this.addTerminalLine(`Step ${index + 1} is locked. Complete the previous steps first.`, 'error');
+                return;
+            }
 
             this.executing = true;
             this.addTerminalLine(`=== Executing Step ${index + 1} ===`, 'info');
@@ -745,6 +798,7 @@ function executionPage(workPackageId) {
                         username: this.connection.username,
                         password: this.connection.password,
                         connection_type: this.connection.type,
+                        work_package_id: this.workPackageId,
                         command: step.command,
                         timeout: 300
                     })
@@ -774,10 +828,11 @@ function executionPage(workPackageId) {
                     this.hasFailure = true;
                     this.addTerminalLine(`Step ${index + 1} failed with exit code: ${data.exit_code}`, 'error');
                     this.addTerminalLine('Rollback may be required. See Rollback section below.', 'error');
+                    this.message = `Execution failed at step ${index + 1}. The work package was not completed. Review the error and run the rollback procedure.`;
+                    this.messageType = 'error';
                 }
 
                 // Log command to API
-                await this.logCommand(step.command, data);
 
                 this.commandHistory.push({
                     command: step.command,
@@ -827,26 +882,6 @@ function executionPage(workPackageId) {
             this.addTerminalLine('Steps reset. Ready to re-execute.', 'info');
         },
 
-        async logCommand(command, result) {
-            try {
-                await fetch(`/api/v1/execution/${this.workPackageId}/log-command`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        work_package_id: this.workPackageId,
-                        command: command,
-                        output: result.stdout || '',
-                        stderr: result.stderr || '',
-                        exit_code: result.exit_code || 0,
-                        success: result.success || false,
-                        host: this.connection.host
-                    })
-                });
-            } catch (error) {
-                console.log('Failed to log command:', error);
-            }
-        },
-
         async markComplete() {
             this.completing = true;
 
@@ -885,10 +920,19 @@ function executionPage(workPackageId) {
                     this.messageType = 'success';
                     setTimeout(() => {
                         window.location.href = `/work-packages/${this.workPackageId}`;
-                    }, 2000);
+                    }, 5000);
                 } else {
                     const error = await response.json();
-                    this.message = error.detail || 'Failed to complete';
+                    const detail = error.detail || '';
+                    if (detail.includes('WorkflowStatus.APPROVED') || detail.includes('status: approved')) {
+                        this.message = 'Execution has not started yet. Run the approved implementation successfully before marking this work package as complete.';
+                    } else if (detail.includes('WorkflowStatus.EXECUTION_FAILED')) {
+                        this.message = 'Execution failed, so this work package cannot be marked as complete. Resolve the failure or complete the rollback process.';
+                    } else if (detail.includes('WorkflowStatus.ROLLED_BACK')) {
+                        this.message = 'The change was rolled back and was not implemented. Close it as rolled back or retry the execution instead.';
+                    } else {
+                        this.message = detail || 'This work package could not be completed. Confirm that execution finished successfully and try again.';
+                    }
                     this.messageType = 'error';
                 }
             } catch (error) {
@@ -976,6 +1020,9 @@ function executionPage(workPackageId) {
                         username: this.connection.username,
                         password: this.connection.password,
                         connection_type: this.connection.type,
+                        work_package_id: this.workPackageId,
+                        is_rollback: true,
+                        rollback_complete: index === this.rollbackSteps.length - 1,
                         command: step.command,
                         timeout: 300
                     })
@@ -1005,8 +1052,6 @@ function executionPage(workPackageId) {
                     this.addTerminalLine(`Rollback Step ${index + 1} failed`, 'error');
                 }
 
-                await this.logCommand(`[ROLLBACK] ${step.command}`, data);
-
                 this.commandHistory.push({
                     command: `[ROLLBACK] ${step.command}`,
                     result: data,
@@ -1017,6 +1062,8 @@ function executionPage(workPackageId) {
                 if (this.rollbackSteps.every(s => s.executed)) {
                     this.rollbackStatus = 'completed';
                     this.addTerminalLine('=== Rollback completed successfully ===', 'success');
+                    this.message = 'Execution failed, but rollback completed successfully. The work package was restored and has not been marked as completed.';
+                    this.messageType = 'warning';
                 }
 
             } catch (error) {
@@ -1068,6 +1115,9 @@ function executionPage(workPackageId) {
                         username: this.connection.username,
                         password: this.connection.password,
                         connection_type: this.connection.type,
+                        work_package_id: this.workPackageId,
+                        is_rollback: true,
+                        rollback_complete: true,
                         command: this.pkg.rollback_procedure,
                         timeout: 600
                     })
@@ -1090,16 +1140,14 @@ function executionPage(workPackageId) {
                 if (data.success) {
                     this.rollbackStatus = 'completed';
                     this.addTerminalLine('=== Rollback completed successfully ===', 'success');
-                    this.message = 'Rollback executed successfully';
-                    this.messageType = 'success';
+                    this.message = 'Execution failed, but rollback completed successfully. The work package was restored and has not been marked as completed.';
+                    this.messageType = 'warning';
                 } else {
                     this.rollbackStatus = 'failed';
                     this.addTerminalLine(`=== Rollback failed with exit code: ${data.exit_code} ===`, 'error');
-                    this.message = 'Rollback failed - manual intervention may be required';
+                    this.message = 'Execution and rollback both failed. The work package was not completed and manual intervention is required.';
                     this.messageType = 'error';
                 }
-
-                await this.logCommand('[FULL ROLLBACK]', data);
 
                 this.commandHistory.push({
                     command: '[FULL ROLLBACK]',
@@ -1110,7 +1158,7 @@ function executionPage(workPackageId) {
             } catch (error) {
                 this.rollbackStatus = 'failed';
                 this.addTerminalLine('Error executing rollback: ' + error.message, 'error');
-                this.message = 'Rollback execution error';
+                this.message = `Rollback could not be executed: ${error.message}. The work package was not completed and manual intervention is required.`;
                 this.messageType = 'error';
             }
 
@@ -1123,8 +1171,8 @@ function executionPage(workPackageId) {
                 this.hasFailure = false;
                 this.rollbackInitiated = false;
                 this.addTerminalLine('Rollback skipped by user', 'error');
-                this.message = 'Rollback skipped - proceed with caution';
-                this.messageType = 'error';
+                this.message = 'Rollback was skipped after execution failure. The target system may be in an inconsistent state and the work package was not completed.';
+                this.messageType = 'warning';
             }
         }
     }

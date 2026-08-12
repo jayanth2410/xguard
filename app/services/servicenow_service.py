@@ -324,6 +324,19 @@ class ServiceNowService:
         """Parse ServiceNow record to work package format"""
         trigger_source = f"servicenow_{record_type}"
 
+        excluded_fields = {
+            "sys_id", "number", "short_description", "description", "sys_class_name",
+            "sys_mod_count", "sys_tags", "sys_domain", "sys_domain_path",
+            "comments", "work_notes"
+        }
+        servicenow_details = {
+            key: value
+            for key, value in record.items()
+            if key not in excluded_fields
+            and not key.startswith("sys_")
+            and value not in (None, "", [], {})
+        }
+
         return {
             "ticket_id": record.get("number", ""),
             "title": record.get("short_description", ""),
@@ -335,6 +348,7 @@ class ServiceNowService:
             "assignment_group": record.get("assignment_group", {}).get("display_value", "") if isinstance(record.get("assignment_group"), dict) else record.get("assignment_group", ""),
             "risk": record.get("risk", ""),
             "impact": record.get("impact", ""),
+            "servicenow_details": servicenow_details,
         }
 
     async def close_ticket(

@@ -32,6 +32,7 @@ async def create_work_package(
 async def list_work_packages(
     status: Optional[WorkflowStatus] = None,
     change_type: Optional[ChangeType] = None,
+    ticket_id: Optional[str] = Query(None, max_length=50),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -43,6 +44,7 @@ async def list_work_packages(
     items = await service.list_work_packages(
         status=status,
         change_type=change_type,
+        ticket_id=ticket_id,
         skip=skip,
         limit=page_size,
     )
@@ -54,6 +56,8 @@ async def list_work_packages(
         query = query.filter(WorkPackage.status == status)
     if change_type:
         query = query.filter(WorkPackage.change_type == change_type)
+    if ticket_id:
+        query = query.filter(WorkPackage.ticket_id.ilike(f"%{ticket_id.strip()}%"))
     total = query.count()
 
     return WorkPackageListResponse(
@@ -116,32 +120,3 @@ async def submit_for_review(
     return work_package
 
 
-@router.post("/{work_package_id}/generate")
-async def generate_implementation(
-    work_package_id: UUID,
-    db: Session = Depends(get_db),
-):
-    """Generate implementation using AI"""
-    service = MakerService(db)
-
-    try:
-        generated = await service.generate_implementation(work_package_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return {
-        "status": "generated",
-        "work_package_id": str(work_package_id),
-        "generated_fields": list(generated.keys()),
-    }
-
-
-@router.post("/analyze")
-async def analyze_requirements(
-    ticket_data: dict,
-    db: Session = Depends(get_db),
-):
-    """Analyze ticket requirements and suggest change type"""
-    service = MakerService(db)
-    analysis = await service.analyze_requirements(ticket_data)
-    return analysis

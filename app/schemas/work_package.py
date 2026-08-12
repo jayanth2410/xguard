@@ -42,10 +42,13 @@ class WorkPackageCreate(BaseModel):
     # Optional AI-generated content
     generated_code: Optional[str] = None
     generated_procedure: Optional[str] = None
+    impact_analysis: Optional[Dict[str, Any]] = None
     rollback_procedure: Optional[str] = None
     pre_checks: Optional[Dict[str, Any]] = None
     post_checks: Optional[Dict[str, Any]] = None
     variables: Optional[Dict[str, Any]] = None
+    ai_questions: Optional[List[Dict[str, Any]]] = None
+    ai_question_responses: Optional[List[Dict[str, Any]]] = None
 
     # Target information
     target_infrastructure: Optional[List[str]] = None
@@ -69,10 +72,13 @@ class WorkPackageUpdate(BaseModel):
     risk_level: Optional[RiskLevel] = None
     generated_code: Optional[str] = None
     generated_procedure: Optional[str] = None
+    impact_analysis: Optional[Dict[str, Any]] = None
     rollback_procedure: Optional[str] = None
     pre_checks: Optional[Dict[str, Any]] = None
     post_checks: Optional[Dict[str, Any]] = None
     variables: Optional[Dict[str, Any]] = None
+    ai_questions: Optional[List[Dict[str, Any]]] = None
+    ai_question_responses: Optional[List[Dict[str, Any]]] = None
     target_infrastructure: Optional[List[str]] = None
     target_hosts: Optional[List[str]] = None
     scheduled_start: Optional[datetime] = None
@@ -100,6 +106,9 @@ class WorkPackageResponse(BaseModel):
     pre_checks: Optional[Dict[str, Any]]
     post_checks: Optional[Dict[str, Any]]
     variables: Optional[Dict[str, Any]]
+    ai_questions: Optional[List[Dict[str, Any]]] = None
+    ai_question_responses: Optional[List[Dict[str, Any]]] = None
+    tokens_used: int = 0
 
     target_infrastructure: Optional[List[str]]
     target_hosts: Optional[List[str]]
@@ -114,7 +123,7 @@ class WorkPackageResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    steps: List[WorkPackageStepResponse] = []
+    steps: List[WorkPackageStepResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

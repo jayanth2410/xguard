@@ -34,10 +34,13 @@ class MakerService:
             status=WorkflowStatus.DRAFT,
             generated_code=data.generated_code,
             generated_procedure=data.generated_procedure,
+            impact_analysis=data.impact_analysis,
             rollback_procedure=data.rollback_procedure,
             pre_checks=data.pre_checks,
             post_checks=data.post_checks,
             variables=data.variables,
+            ai_questions=data.ai_questions or [],
+            ai_question_responses=data.ai_question_responses or [],
             target_infrastructure=data.target_infrastructure,
             target_hosts=data.target_hosts,
             scheduled_start=data.scheduled_start,
@@ -125,6 +128,20 @@ class MakerService:
             WorkflowStatus.REWORK_REQUIRED,
         ]:
             raise ValueError(f"Cannot submit for review from status: {work_package.status}")
+
+        answers = {
+            answer.get("question_key"): answer.get("response_text")
+            for answer in (work_package.ai_question_responses or [])
+            if answer.get("question_key") and str(answer.get("response_text", "")).strip()
+        }
+        unanswered = [
+            question for question in (work_package.ai_questions or [])
+            if question.get("is_required", True) and question.get("question_key") not in answers
+        ]
+        if unanswered:
+            raise ValueError(f"Answer all required clarification questions before review ({len(unanswered)} remaining)")
+        if not work_package.generated_code or not work_package.rollback_procedure:
+            raise ValueError("Generate the final implementation and rollback code before review")
 
         work_package.status = WorkflowStatus.PENDING_REVIEW
         self.db.commit()
@@ -376,6 +393,7 @@ If automatic rollback fails:
         self,
         status: Optional[WorkflowStatus] = None,
         change_type: Optional[ChangeType] = None,
+        ticket_id: Optional[str] = None,
         maker_id: Optional[UUID] = None,
         skip: int = 0,
         limit: int = 100,
@@ -387,6 +405,8 @@ If automatic rollback fails:
             query = query.filter(WorkPackage.status == status)
         if change_type:
             query = query.filter(WorkPackage.change_type == change_type)
+        if ticket_id:
+            query = query.filter(WorkPackage.ticket_id.ilike(f"%{ticket_id.strip()}%"))
         if maker_id:
             query = query.filter(WorkPackage.maker_id == maker_id)
 

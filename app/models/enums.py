@@ -20,12 +20,7 @@ class WorkflowStatus(str, Enum):
     PENDING_REVIEW = "pending_review"
     IN_REVIEW = "in_review"
     APPROVED = "approved"
-    REJECTED = "rejected"
     REWORK_REQUIRED = "rework_required"
-    PENDING_VALIDATION = "pending_validation"
-    VALIDATION_IN_PROGRESS = "validation_in_progress"
-    VALIDATED = "validated"
-    VALIDATION_FAILED = "validation_failed"
     PENDING_EXECUTION = "pending_execution"
     EXECUTING = "executing"
     EXECUTED = "executed"
@@ -56,8 +51,8 @@ class TriggerSource(str, Enum):
     API = "api"
 
 
-class ValidationQuestionType(str, Enum):
-    """Types of validation questions"""
+class ClarificationQuestionType(str, Enum):
+    """Types of pre-review clarification questions"""
     TEXT = "text"
     SELECT = "select"
     MULTI_SELECT = "multi_select"

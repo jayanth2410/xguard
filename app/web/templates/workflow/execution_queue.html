@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Execution Queue - XGuard{% endblock %}
+
+{% block content %}
+<div x-data="executionQueue()" x-init="loadQueue()">
+    <div class="mb-4">
+        <h1 class="text-2xl font-bold text-gray-900">Execution Queue</h1>
+        <p class="mt-1 text-sm text-gray-600">Reviewer-approved work packages ready for controlled execution.</p>
+    </div>
+
+    <section class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-3 py-2">
+            <h2 class="text-sm font-semibold text-blue-900">Available for Execution</h2>
+            <span class="text-xs text-blue-700" x-text="packages.length + ' packages'"></span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Ticket ID</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Title</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Type</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Mode</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Approved</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white">
+                    <template x-for="pkg in packages" :key="pkg.id">
+                        <tr class="hover:bg-blue-50/40">
+                            <td class="whitespace-nowrap px-3 py-2.5 text-sm font-semibold text-blue-700" x-text="pkg.ticket_id"></td>
+                            <td class="px-3 py-2.5 text-sm text-gray-900" x-text="pkg.title"></td>
+                            <td class="whitespace-nowrap px-3 py-2.5"><span class="rounded bg-blue-100 px-2 py-0.5 text-xs capitalize text-blue-800" x-text="pkg.change_type"></span></td>
+                            <td class="whitespace-nowrap px-3 py-2.5 text-xs capitalize text-gray-700" x-text="pkg.execution_mode"></td>
+                            <td class="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500" x-text="formatDate(pkg.updated_at)"></td>
+                            <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                                <a :href="'/workflow/execute/' + pkg.id" class="inline-flex rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700">Execute</a>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div x-show="loading" class="py-10 text-center text-sm text-gray-500">Loading approved packages...</div>
+        <div x-show="!loading && !packages.length" class="py-10 text-center">
+            <p class="text-sm font-medium text-gray-700">No packages are ready for execution</p>
+            <p class="mt-1 text-xs text-gray-500">Packages appear here after reviewer approval.</p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function executionQueue() {
+    return {
+        packages: [],
+        loading: true,
+        async loadQueue() {
+            try {
+                const response = await fetch('/api/v1/work-packages/?status=approved&page_size=100');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.packages = data.items || [];
+                }
+            } finally {
+                this.loading = false;
+            }
+        },
+        formatDate(value) {
+            return value ? new Date(value).toLocaleString() : '-';
+        }
+    };
+}
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Maker-Checker Platform{% endblock %}</title>
+    <title>{% block title %}XGuard{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
@@ -11,19 +11,21 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <nav class="bg-indigo-600 text-white shadow-lg">
+    <nav class="bg-white text-slate-700 border-b border-blue-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center">
-                    <a href="/" class="flex items-center">
-                        <span class="text-xl font-bold">Maker-Checker Platform</span>
+                    <a href="/" class="relative block h-12 w-44 overflow-hidden" aria-label="XGuard home">
+                        <img src="{{ url_for('static', filename='images/xguard-logo.png') }}"
+                             alt="XGuard"
+                             class="absolute left-0 top-1/2 w-full -translate-y-1/2">
                     </a>
-                    <div class="ml-10 flex items-baseline space-x-4">
-                        <a href="/" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Dashboard</a>
-                        <a href="/work-packages" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Work Packages</a>
-                        <a href="/workflow/review" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Reviews</a>
-                        <a href="/workflow/validation-queue" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">Validation</a>
-                        <a href="/servicenow" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500">ServiceNow</a>
+                    <div class="ml-8 flex h-16 items-stretch space-x-1">
+                        <a href="/" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path == '/' else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">Dashboard</a>
+                        <a href="/work-packages" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path.startswith('/work-packages') else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">Work Packages</a>
+                        <a href="/workflow/review" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path.startswith('/workflow/review') else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">Reviews</a>
+                        <a href="/workflow/execute" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path.startswith('/workflow/execute') else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">Execute</a>
+                        <a href="/servicenow" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path.startswith('/servicenow') else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">ServiceNow</a>
                     </div>
                 </div>
             </div>
@@ -36,7 +38,7 @@
 
     <footer class="bg-gray-100 border-t mt-auto">
         <div class="max-w-7xl mx-auto px-4 py-4 text-center text-gray-500 text-sm">
-            Maker-Checker Enterprise Platform v1.0.0
+            XGuard Enterprise Change Control Platform v1.0.0
         </div>
     </footer>
 

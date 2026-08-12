@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Work Package - Maker-Checker Platform{% endblock %}
+{% block title %}Edit Work Package - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="editWorkPackage()" x-init="loadWorkPackage()">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Edit Work Package</h1>
-        <p class="text-gray-600 mt-2">Modify the work package details</p>
+    <div class="mb-4 flex items-center justify-between gap-4">
+        <div><h1 class="text-xl font-semibold text-gray-900">Edit Work Package</h1><p class="text-sm text-gray-500">Modify details, code, rollback, and answers.</p></div>
+        <a :href="`/work-packages/${workPackageId}`" class="text-sm text-blue-600 hover:underline">Back to view</a>
     </div>
 
     <!-- Loading State -->
@@ -54,8 +54,17 @@
         </div>
     </div>
 
-    <form x-show="!pageLoading" @submit.prevent="submitForm" class="bg-white rounded-lg shadow p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form x-show="!pageLoading" @submit.prevent="submitForm">
+        <div class="flex items-center gap-2 mb-3 text-xs">
+            <span class="px-2 py-1 rounded" :class="form.ai_questions.length ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">1. Details</span>
+            <span class="text-gray-300">→</span>
+            <span class="px-2 py-1 rounded" :class="form.ai_questions.length ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'">2. Clarification</span>
+            <span class="text-gray-300">→</span>
+            <span class="px-2 py-1 rounded" :class="form.generated_code ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">3. Generated code</span>
+        </div>
+        <section class="bg-blue-50/40 border border-blue-200 rounded-md p-4 mb-4 shadow-sm">
+        <h2 class="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2"><span class="w-1.5 h-4 rounded bg-blue-600"></span>Work Package Details</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 [&_label]:text-xs [&_label]:mb-1 [&_input]:text-sm [&_input]:py-1.5 [&_select]:text-sm [&_select]:py-1.5">
             <!-- Ticket ID -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Ticket ID *</label>
@@ -119,56 +128,101 @@
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                        placeholder="Comma-separated list of hosts/IPs">
             </div>
-        </div>
 
-        <!-- Description -->
-        <div class="mt-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Platform / Operating System</label>
+                <input type="text" x-model="platformInput"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="For example: Linux, Ubuntu 22.04, Windows Server 2022">
+            </div>
+        <div class="md:col-span-2 lg:col-span-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea x-model="form.description" rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            <textarea x-model="form.description" rows="8"
+                      class="w-full min-h-48 px-3 py-2 border border-gray-300 rounded-md text-sm leading-6 resize-y focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Detailed description of the change"></textarea>
         </div>
-
-        <!-- Generated Code -->
-        <div class="mt-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Code/Script</label>
-            <textarea x-model="form.generated_code" rows="8"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Enter the code, script, or commands to execute"></textarea>
         </div>
+        </section>
 
-        <!-- Rollback Procedure -->
-        <div class="mt-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Rollback Procedure</label>
-            <textarea x-model="form.rollback_procedure" rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Steps to rollback if the change fails"></textarea>
+        <section class="bg-white border border-sky-200 rounded-md overflow-hidden mb-4 shadow-sm">
+            <div class="px-3 py-2 border-b border-sky-200 bg-sky-50 flex items-center justify-between gap-2">
+                <div><h3 class="text-sm font-semibold">Clarification Questions</h3><p class="text-xs text-gray-500" x-text="loading && !hasAIClarificationQuestions() ? 'Generating questions automatically...' : form.ai_questions.length + ' questions'"></p></div>
+                <span x-show="loading && !hasAIClarificationQuestions()" class="text-xs text-blue-600">Analyzing…</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0">
+                <template x-for="(question, index) in form.ai_questions" :key="question.question_key">
+                    <div class="p-3 border-b border-sky-100 md:odd:border-r hover:bg-sky-50/50">
+                        <label class="mb-1 block text-sm font-medium text-gray-800">
+                            <span x-text="(index + 1) + '. ' + question.question_text"></span>
+                            <span x-show="question.is_required" class="text-red-600 font-bold" title="Required"> *</span>
+                        </label>
+                        <template x-if="question.question_type === 'select' || question.question_type === 'confirmation'">
+                            <select :value="getQuestionAnswer(question.question_key)" @change="setQuestionAnswer(question, $event.target.value)" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+                                <option value="">Select an option</option>
+                                <template x-for="option in questionOptions(question)" :key="option"><option :value="option" :selected="getQuestionAnswer(question.question_key) === option" x-text="option"></option></template>
+                            </select>
+                        </template>
+                        <template x-if="question.question_type === 'date_time'">
+                            <input type="datetime-local" :value="getQuestionAnswer(question.question_key)" @input="setQuestionAnswer(question, $event.target.value)" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+                        </template>
+                        <template x-if="question.question_type === 'multi_select'">
+                            <select multiple @change="setMultiQuestionAnswer(question, $event.target)" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+                                <template x-for="option in (question.options || [])" :key="option"><option :value="option" :selected="isQuestionOptionSelected(question.question_key, option)" x-text="option"></option></template>
+                            </select>
+                        </template>
+                        <template x-if="!['select', 'confirmation', 'date_time', 'multi_select'].includes(question.question_type)">
+                            <input type="text" :value="getQuestionAnswer(question.question_key)" @input="setQuestionAnswer(question, $event.target.value)" :placeholder="question.placeholder || 'Enter your response'" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+                        </template>
+                    </div>
+                </template>
+                <p x-show="!form.ai_questions.length && !loading" class="p-4 text-sm text-gray-500">No clarification questions were generated.</p>
+            </div>
+            <div x-show="hasAIClarificationQuestions()" class="border-t border-sky-200 bg-sky-50/60 p-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span class="text-gray-600" x-text="answeredGenerationQuestionsCount() + ' of ' + requiredGenerationQuestionsCount() + ' required questions answered'"></span>
+                    <span class="font-medium text-green-700" x-show="!unansweredGenerationQuestions().length">Ready to generate</span>
+                    <button type="button" @click="generateImplementation(false)"
+                        class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        :disabled="loading || unansweredGenerationQuestions().length > 0">
+                        <span x-show="!loading">Generate code</span><span x-show="loading">Generating...</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <section class="bg-white border border-blue-200 rounded-md overflow-hidden shadow-sm">
+                <label class="block px-4 py-2 border-b border-blue-200 bg-blue-50 text-sm font-semibold text-blue-900"><span class="inline-block w-1.5 h-3.5 bg-blue-600 rounded mr-2 align-middle"></span>Implementation Code</label>
+                <textarea x-model="form.generated_code" rows="14" class="w-full p-3 border-0 rounded-none font-mono text-xs focus:ring-0" placeholder="Generated implementation code appears here"></textarea>
+            </section>
+            <section class="bg-white border border-amber-200 rounded-md overflow-hidden shadow-sm">
+                <label class="block px-4 py-2 border-b border-amber-200 bg-amber-50 text-sm font-semibold text-amber-900"><span class="inline-block w-1.5 h-3.5 bg-amber-500 rounded mr-2 align-middle"></span>Rollback Code</label>
+                <textarea x-model="form.rollback_procedure" rows="14" class="w-full p-3 border-0 rounded-none font-mono text-xs focus:ring-0" placeholder="Generated rollback code appears here"></textarea>
+            </section>
         </div>
 
         <!-- Actions -->
-        <div class="mt-8 flex justify-end space-x-4">
-            <a :href="`/work-packages/${workPackageId}`" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 bg-white border border-gray-200 rounded-md px-3 py-2">
+            <span class="text-xs text-gray-500">Save persists the current details, answers, and generated content.</span>
+            <div class="flex gap-2">
+            <a :href="`/work-packages/${workPackageId}`" class="px-2.5 py-1.5 text-xs border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
                 Cancel
             </a>
-            <button type="button" @click="generateImplementation"
-                    class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
-                    :disabled="!form.change_type">
-                Regenerate with AI
-            </button>
             <button type="submit"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    class="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                     :disabled="loading">
                 <span x-show="!loading">Save Changes</span>
                 <span x-show="loading">Saving...</span>
             </button>
+            </div>
         </div>
     </form>
 
-    <!-- Success/Error Messages -->
-    <div x-show="message" x-cloak
-         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-         class="mt-4 p-4 rounded-md">
-        <span x-text="message"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
+         :class="messageType === 'success' ? 'border-green-300' : messageType === 'info' ? 'border-blue-300' : 'border-red-300'">
+        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : messageType === 'info' ? 'bg-blue-500' : 'bg-red-500'"></span>
+        <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : messageType === 'info' ? 'text-blue-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Success' : messageType === 'info' ? 'Information' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
+        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -187,13 +241,23 @@ function editWorkPackage() {
             execution_mode: 'manual',
             generated_code: '',
             rollback_procedure: '',
+            generated_procedure: '',
+            pre_checks: null,
+            post_checks: null,
+            impact_analysis: null,
+            variables: {},
+            ai_questions: [],
+            ai_question_responses: [],
             target_hosts: []
         },
         targetHostsInput: '',
+        platformInput: '',
         loading: false,
         pageLoading: true,
         message: '',
         messageType: '',
+        generationReady: false,
+        autoQuestionsRequested: false,
         reworkInfo: {
             required: false,
             comments: '',
@@ -216,8 +280,19 @@ function editWorkPackage() {
                     this.form.execution_mode = data.execution_mode || 'manual';
                     this.form.generated_code = data.generated_code || '';
                     this.form.rollback_procedure = data.rollback_procedure || '';
+                    this.form.generated_procedure = data.generated_procedure || '';
+                    this.form.pre_checks = data.pre_checks || null;
+                    this.form.post_checks = data.post_checks || null;
+                    this.form.impact_analysis = data.impact_analysis || null;
+                    this.form.variables = data.variables || {};
+                    this.form.ai_questions = data.ai_questions || [];
+                    this.form.ai_question_responses = data.ai_question_responses || [];
                     this.form.target_hosts = data.target_hosts || [];
                     this.targetHostsInput = this.form.target_hosts.join(', ');
+                    this.platformInput = this.form.variables.platform
+                        || this.form.variables.operating_system
+                        || (Array.isArray(data.target_infrastructure) ? data.target_infrastructure[0] : '')
+                        || '';
 
                     // If status is rework_required, fetch review details
                     if (data.status === 'rework_required') {
@@ -232,6 +307,10 @@ function editWorkPackage() {
                 this.messageType = 'error';
             }
             this.pageLoading = false;
+            if (!this.hasAIClarificationQuestions() && !this.form.generated_code && !this.autoQuestionsRequested) {
+                this.autoQuestionsRequested = true;
+                await this.generateImplementation(true);
+            }
         },
 
         async loadReworkReason() {
@@ -241,7 +320,7 @@ function editWorkPackage() {
                     const data = await response.json();
                     // Find the latest rework_required review
                     if (data.reviews && data.reviews.length > 0) {
-                        const reworkReview = data.reviews.find(r => r.decision === 'rework_required');
+                        const reworkReview = data.reviews.find(r => ['rework_required', 'rejected'].includes(r.decision));
                         if (reworkReview) {
                             this.reworkInfo = {
                                 required: true,
@@ -254,7 +333,7 @@ function editWorkPackage() {
                         }
                     }
                     // Also check latest_review in summary
-                    if (data.latest_review && data.latest_review.decision === 'rework_required') {
+                    if (data.latest_review && ['rework_required', 'rejected'].includes(data.latest_review.decision)) {
                         this.reworkInfo = {
                             required: true,
                             comments: data.latest_review.comments || '',
@@ -280,6 +359,10 @@ function editWorkPackage() {
             } else {
                 this.form.target_hosts = [];
             }
+            this.form.variables = {
+                ...(this.form.variables || {}),
+                platform: this.platformInput.trim()
+            };
 
             try {
                 const response = await fetch(`/api/v1/work-packages/${this.workPackageId}`, {
@@ -293,7 +376,7 @@ function editWorkPackage() {
                     this.messageType = 'success';
                     setTimeout(() => {
                         window.location.href = `/work-packages/${this.workPackageId}`;
-                    }, 1000);
+                    }, 5000);
                 } else {
                     const error = await response.json();
                     let errorMsg = 'Failed to update work package';
@@ -318,16 +401,69 @@ function editWorkPackage() {
             this.loading = false;
         },
 
-        async generateImplementation() {
-            if (!this.form.change_type) {
-                this.message = 'Please select a change type first';
+        getQuestionAnswer(questionKey) {
+            return this.form.ai_question_responses.find(item => item.question_key === questionKey)?.response_text || '';
+        },
+
+        setQuestionAnswer(question, value) {
+            const existing = this.form.ai_question_responses.find(item => item.question_key === question.question_key);
+            if (existing) existing.response_text = value;
+            else this.form.ai_question_responses.push({question_key: question.question_key, question_text: question.question_text, response_text: value});
+        },
+
+        questionOptions(question) {
+            return question.question_type === 'confirmation' ? ['Yes', 'No'] : (question.options || []);
+        },
+
+        setMultiQuestionAnswer(question, element) {
+            this.setQuestionAnswer(question, Array.from(element.selectedOptions).map(option => option.value).join(', '));
+        },
+
+        isQuestionOptionSelected(questionKey, option) {
+            return this.getQuestionAnswer(questionKey).split(',').map(value => value.trim()).includes(option);
+        },
+
+        unansweredRequiredQuestions() {
+            return this.form.ai_questions.filter(question => question.is_required && !this.getQuestionAnswer(question.question_key).trim());
+        },
+
+        unansweredGenerationQuestions() {
+            return this.form.ai_questions.filter(question => question.source === 'ai' && question.is_required && !this.getQuestionAnswer(question.question_key).trim());
+        },
+
+        requiredGenerationQuestionsCount() {
+            return this.form.ai_questions.filter(question => question.source === 'ai' && question.is_required).length;
+        },
+
+        answeredGenerationQuestionsCount() {
+            return this.requiredGenerationQuestionsCount() - this.unansweredGenerationQuestions().length;
+        },
+
+        hasAIClarificationQuestions() {
+            return this.form.ai_questions.some(question => question.source === 'ai');
+        },
+
+        async generateImplementation(questionsOnly = false) {
+            if (!this.form.title.trim() && !this.form.description.trim()) {
+                this.message = 'Enter a title or description before generating';
+                this.messageType = 'error';
+                return;
+            }
+
+            this.form.target_hosts = this.targetHostsInput
+                ? this.targetHostsInput.split(',').map(host => host.trim()).filter(Boolean)
+                : [];
+
+            const unanswered = this.unansweredGenerationQuestions();
+            if (!questionsOnly && this.form.ai_questions.length && unanswered.length) {
+                this.message = `Answer the ${unanswered.length} AI clarification question(s) required to generate final code.`;
                 this.messageType = 'error';
                 return;
             }
 
             this.loading = true;
-            this.message = 'Generating implementation with AI...';
-            this.messageType = 'success';
+            this.message = questionsOnly ? '' : 'Generating final implementation using your answers...';
+            this.messageType = questionsOnly ? '' : 'info';
 
             // Fetch CI from ServiceNow if ticket is from ServiceNow
             let targetHost = '';
@@ -341,30 +477,53 @@ function editWorkPackage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        work_package_id: this.workPackageId,
                         change_type: this.form.change_type,
                         title: this.form.title,
                         description: this.form.description,
                         target_hosts: this.form.target_hosts,
-                        target_host: targetHost
+                        target_host: targetHost,
+                        platform: this.platformInput.trim(),
+                        question_responses: questionsOnly ? [] : this.form.ai_question_responses
                     })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.form.generated_code = data.script;
-                    this.form.rollback_procedure = data.rollback;
-                    this.message = targetHost
-                        ? `Implementation generated! Target: ${targetHost}`
-                        : 'Implementation generated!';
+                    if (data.ready_to_generate) {
+                        this.form.generated_code = data.script;
+                        this.form.rollback_procedure = data.rollback;
+                        this.form.generated_procedure = data.implementation_procedure;
+                        this.form.pre_checks = data.pre_checks;
+                        this.form.post_checks = data.post_checks;
+                        this.form.impact_analysis = data.impact_analysis;
+                    }
+                    this.form.ai_questions = data.questions || [];
+                    this.generationReady = data.ready_to_generate;
+                    this.form.variables = {
+                        ...(this.form.variables || {}),
+                        ai_generated: true,
+                        ai_intent: data.intent,
+                        platform: this.platformInput.trim()
+                    };
+                    if (data.detected_change_type) {
+                        this.form.change_type = data.detected_change_type;
+                    }
+                    const remaining = this.unansweredGenerationQuestions().length;
+                    this.message = questionsOnly && !data.ready_to_generate ? '' : data.ready_to_generate
+                        ? `Final implementation and rollback code generated. Intent: ${data.intent}.`
+                        : remaining > 0
+                            ? `${remaining} clarification question${remaining === 1 ? '' : 's'} generated. Answer the required question${remaining === 1 ? '' : 's'} below to enable Generate Final Code.`
+                            : 'AI could not complete generation. Please try Generate Final Code again.';
+                    this.messageType = questionsOnly && !data.ready_to_generate ? '' : data.ready_to_generate ? 'success' : remaining > 0 ? 'info' : 'error';
                 } else {
-                    // Fallback to local generation
-                    this.generateLocalScript();
-                    this.message = 'Generated using local templates';
+                    const error = await response.json();
+                    this.message = error.detail || 'AI generation failed';
+                    this.messageType = 'error';
                 }
             } catch (error) {
-                // Fallback to local generation
-                this.generateLocalScript();
-                this.message = 'Generated using local templates';
+                this.message = 'AI generation failed. Check the API configuration and try again.';
+                this.messageType = 'error';
             }
 
             this.loading = false;
@@ -397,126 +556,6 @@ function editWorkPackage() {
             return '';
         },
 
-        generateLocalScript() {
-            const desc = (this.form.description || '').toLowerCase();
-            const title = (this.form.title || '').toLowerCase();
-            const combined = desc + ' ' + title;
-
-            // Detect backup-related tasks
-            if (combined.includes('backup') || combined.includes('archive')) {
-                const sourcePath = this.extractPath(desc, 'from') || '/var/log';
-                const destPath = this.extractPath(desc, 'to') || '/backup';
-
-                this.form.generated_code = `#!/bin/bash
-# Backup Script - Generated from description
-# Description: ${this.form.description}
-
-set -e
-
-# Variables
-SOURCE_PATH="${sourcePath}"
-BACKUP_BASE="${destPath}"
-WEEK_NUM=$(date +%V)
-YEAR=$(date +%Y)
-BACKUP_DIR="\${BACKUP_BASE}/\${WEEK_NUM}_\${YEAR}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-echo "Starting backup at $(date)"
-echo "Source: \${SOURCE_PATH}"
-echo "Destination: \${BACKUP_DIR}"
-
-# Create backup directory
-mkdir -p "\${BACKUP_DIR}"
-
-# Perform backup
-tar -czvf "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" "\${SOURCE_PATH}"
-
-# Verify backup
-if [ -f "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" ]; then
-    echo "Backup completed successfully"
-    ls -lh "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz"
-else
-    echo "Backup failed!"
-    exit 1
-fi
-
-echo "Backup finished at $(date)"`;
-
-                this.form.rollback_procedure = `# Rollback Procedure for Backup
-1. Identify the backup file to restore
-2. Extract: tar -xzvf /backup/WeekNo_Year/backup_timestamp.tar.gz -C /
-3. Verify restored files
-4. Check application functionality`;
-
-            } else if (combined.includes('restart') || combined.includes('service')) {
-                const serviceName = this.extractServiceName(combined) || 'nginx';
-                this.form.generated_code = `#!/bin/bash
-# Service Restart Script
-set -e
-
-SERVICE="${serviceName}"
-
-echo "Restarting \${SERVICE}..."
-sudo systemctl restart \${SERVICE}
-sudo systemctl status \${SERVICE}
-echo "Service restart completed"`;
-
-                this.form.rollback_procedure = `# Rollback
-1. Check service logs: journalctl -u ${serviceName}
-2. Restore previous config if needed
-3. Restart service: sudo systemctl restart ${serviceName}`;
-
-            } else if (this.form.change_type === 'database') {
-                this.form.generated_code = `-- Database Change Script
--- Description: ${this.form.description}
-
-BEGIN TRANSACTION;
-
--- Add your SQL changes here
--- Example: ALTER TABLE, INSERT, UPDATE, etc.
-
-COMMIT;`;
-                this.form.rollback_procedure = `# Rollback
-1. Run rollback script
-2. Verify data integrity`;
-
-            } else {
-                this.form.generated_code = `#!/bin/bash
-# ${this.form.change_type} Change Script
-# Title: ${this.form.title}
-# Description: ${this.form.description}
-
-set -e
-
-echo "Starting ${this.form.change_type} change..."
-
-# TODO: Add implementation based on:
-# ${this.form.description}
-
-echo "Change completed"`;
-
-                this.form.rollback_procedure = `# Rollback Procedure
-1. Stop affected services
-2. Restore from backup
-3. Restart services
-4. Verify functionality`;
-            }
-        },
-
-        extractPath(text, direction) {
-            // Extract path after 'from' or 'to'
-            const regex = new RegExp(direction + '\\s+([/\\w\\-\\.]+)', 'i');
-            const match = text.match(regex);
-            return match ? match[1] : null;
-        },
-
-        extractServiceName(text) {
-            const services = ['nginx', 'apache', 'mysql', 'postgresql', 'redis', 'docker', 'httpd'];
-            for (const svc of services) {
-                if (text.includes(svc)) return svc;
-            }
-            return null;
-        }
     }
 }
 </script>

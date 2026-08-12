@@ -87,22 +87,6 @@ class AuditService:
             new_value={"decision": decision, "comments": comments},
         )
 
-    async def log_validation_response(
-        self,
-        work_package_id: UUID,
-        question_key: str,
-        response: str,
-        responder_id: Optional[UUID] = None,
-    ) -> AuditLog:
-        """Log a validation response"""
-        return await self.log_action(
-            action="validation_response",
-            work_package_id=work_package_id,
-            actor_id=responder_id,
-            actor_type="user",
-            new_value={"question": question_key, "response": response},
-        )
-
     async def log_execution(
         self,
         work_package_id: UUID,
@@ -186,7 +170,6 @@ class AuditService:
         # Extract key events
         creation_log = next((l for l in logs if l.action == "work_package_created"), None)
         review_logs = [l for l in logs if "review" in l.action]
-        validation_logs = [l for l in logs if "validation" in l.action]
         execution_logs = [l for l in logs if "execution" in l.action]
 
         return {
@@ -202,10 +185,6 @@ class AuditService:
             "compliance_checks": {
                 "has_review": len(review_logs) > 0,
                 "review_count": len(review_logs),
-                "has_validation": len(validation_logs) > 0,
-                "validation_complete": any(
-                    l.action == "validation_session_completed" for l in logs
-                ),
                 "has_execution_record": len(execution_logs) > 0,
                 "has_rollback_plan": bool(work_package.rollback_procedure),
             },

@@ -54,7 +54,6 @@ class Settings:
         self.APP_NAME: str = get_config('application', 'APP_NAME', 'Maker-Checker Platform')
         self.APP_VERSION: str = get_config('application', 'APP_VERSION', '1.0.0')
         self.DEBUG: bool = get_config_bool('application', 'DEBUG', False)
-        self.SECRET_KEY: str = get_config('application', 'SECRET_KEY', 'your-secret-key')
 
         # API
         self.API_PREFIX: str = get_config('api', 'API_PREFIX', '/api/v1')
@@ -84,11 +83,11 @@ class Settings:
         self.SERVICENOW_ASSIGNMENT_GROUP: str = get_config('servicenow', 'SERVICENOW_ASSIGNMENT_GROUP', '')
         self.SERVICENOW_ENABLED: bool = get_config_bool('servicenow', 'SERVICENOW_ENABLED', False)
 
-        # Execution Settings
-        self.SCRIPT_STORAGE_PATH: str = get_config('execution', 'SCRIPT_STORAGE_PATH', '/tmp/makerchecker/scripts')
-        self.SCRIPT_STORAGE_PATH_WINDOWS: str = get_config('execution', 'SCRIPT_STORAGE_PATH_WINDOWS', 'C:\\Temp\\makerchecker\\scripts')
-        self.EXECUTION_TIMEOUT: int = get_config_int('execution', 'EXECUTION_TIMEOUT', 600)
-        self.DRY_RUN_DEFAULT: bool = get_config_bool('execution', 'DRY_RUN_DEFAULT', False)
+        # AI / Groq settings
+        self.GROQ_API_KEY: str = get_config('ai', 'GROQ_API_KEY', '')
+        self.AI_BASE_URL: str = get_config('ai', 'BASE_URL', 'https://api.groq.com/openai/v1')
+        self.AI_MODEL: str = get_config('ai', 'MODEL', 'llama-3.3-70b-versatile')
+        self.AI_TIMEOUT_SECONDS: int = get_config_int('ai', 'TIMEOUT_SECONDS', 60)
 
         # SSH Settings
         self.DEFAULT_SSH_PORT: int = get_config_int('ssh', 'DEFAULT_SSH_PORT', 22)
@@ -104,11 +103,6 @@ class Settings:
         self.LOG_LEVEL: str = get_config('logging', 'LOG_LEVEL', 'INFO')
         self.LOG_FORMAT: str = get_config('logging', 'LOG_FORMAT', 'json')
         self.LOG_FILE: str = get_config('logging', 'LOG_FILE', 'logs/makerchecker.log')
-
-        # Security/JWT
-        self.JWT_SECRET_KEY: str = get_config('security', 'JWT_SECRET_KEY', 'jwt-secret-key')
-        self.JWT_ALGORITHM: str = get_config('security', 'JWT_ALGORITHM', 'HS256')
-        self.JWT_EXPIRATION_HOURS: int = get_config_int('security', 'JWT_EXPIRATION_HOURS', 24)
 
         # Print loaded ServiceNow config for debugging
         print(f"[CONFIG] ServiceNow Instance: {self.SERVICENOW_INSTANCE}")

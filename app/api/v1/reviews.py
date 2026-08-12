@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.review import ReviewCreate, ReviewResponse
+from app.schemas.review import ReviewCreate, ReviewDraft, ReviewResponse
 from app.services.checker_service import CheckerService
 
 router = APIRouter()
@@ -27,11 +27,13 @@ async def get_pending_reviews(
         skip=skip,
         limit=page_size,
     )
+    stats = await service.get_queue_stats()
 
     return {
         "items": packages,
         "total": len(packages),
         "page": page,
+        "stats": stats,
     }
 
 
@@ -91,19 +93,30 @@ async def submit_review(
     return review
 
 
-@router.get("/{review_id}", response_model=ReviewResponse)
-async def get_review(
-    review_id: UUID,
+@router.put("/{work_package_id}/draft", response_model=ReviewResponse)
+async def save_review_draft(
+    work_package_id: UUID,
+    data: ReviewDraft,
+    reviewer_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Get a review by ID"""
-    service = CheckerService(db)
-    review = await service.get_review(review_id)
+    """Save review notes without submitting a decision."""
+    import uuid as uuid_module
 
-    if not review:
-        raise HTTPException(status_code=404, detail="Review not found")
+    if not reviewer_id or reviewer_id == "demo-reviewer-id":
+        actual_reviewer_id = uuid_module.UUID("00000000-0000-0000-0000-000000000001")
+    else:
+        try:
+            actual_reviewer_id = uuid_module.UUID(reviewer_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid reviewer_id format")
 
-    return review
+    try:
+        return await CheckerService(db).save_review_draft(
+            work_package_id, actual_reviewer_id, data
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/work-package/{work_package_id}")
@@ -119,22 +132,3 @@ async def get_reviews_for_work_package(
     return summary
 
 
-@router.post("/{work_package_id}/comment")
-async def add_review_comment(
-    work_package_id: UUID,
-    reviewer_id: UUID,
-    comment: str,
-    comment_type: str = "general",
-    db: Session = Depends(get_db),
-):
-    """Add a comment to an in-progress review"""
-    service = CheckerService(db)
-
-    try:
-        review = await service.add_review_comment(
-            work_package_id, reviewer_id, comment, comment_type
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return {"status": "comment_added", "review_id": str(review.id)}

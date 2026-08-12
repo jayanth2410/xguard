@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}ServiceNow Integration - Maker-Checker Platform{% endblock %}
+{% block title %}ServiceNow Integration - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="servicenowPage()" x-init="init()">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">ServiceNow Integration</h1>
-        <p class="text-gray-600 mt-2">Import incidents and change requests from ServiceNow</p>
+    <div class="mb-4">
+        <h1 class="text-2xl font-bold text-gray-900">ServiceNow</h1>
+        <p class="text-sm text-gray-600 mt-1">Review and import ServiceNow records as XGuard work packages.</p>
     </div>
 
     <!-- Connection Status -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="bg-white border border-blue-200 rounded-md shadow-sm px-4 py-3 mb-4">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-lg font-semibold">Connection Status</h3>
+                <h3 class="text-sm font-semibold text-blue-900">Connection</h3>
                 <p class="text-sm text-gray-600" x-text="connectionInfo"></p>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="px-3 py-1 rounded-full text-sm"
+                <span class="px-2 py-1 rounded text-xs font-medium"
                       :class="connected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
                     <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
                 </span>
                 <button @click="testConnection"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                        class="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-slate-300"
                         :disabled="testing">
                     <span x-show="!testing">Test Connection</span>
                     <span x-show="testing">Testing...</span>
@@ -32,22 +32,22 @@
     </div>
 
     <!-- Tabs -->
-    <div class="mb-6">
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
+    <div class="mb-4 bg-blue-50/40 border border-blue-200 rounded-md px-3">
+        <div>
+            <nav class="flex gap-1">
                 <button @click="activeTab = 'incidents'; loadAllRecords()"
-                        :class="activeTab === 'incidents' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        :class="activeTab === 'incidents' ? 'border-blue-600 text-blue-700 bg-white' : 'border-transparent text-gray-500 hover:text-blue-700'"
+                        class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm">
                     Incidents
                 </button>
                 <button @click="activeTab = 'changes'; loadAllRecords()"
-                        :class="activeTab === 'changes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        :class="activeTab === 'changes' ? 'border-blue-600 text-blue-700 bg-white' : 'border-transparent text-gray-500 hover:text-blue-700'"
+                        class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm">
                     Change Requests
                 </button>
                 <button @click="activeTab = 'requests'; loadAllRecords()"
-                        :class="activeTab === 'requests' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        :class="activeTab === 'requests' ? 'border-blue-600 text-blue-700 bg-white' : 'border-transparent text-gray-500 hover:text-blue-700'"
+                        class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm">
                     Service Requests
                 </button>
             </nav>
@@ -55,21 +55,23 @@
     </div>
 
     <!-- Search -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 class="text-lg font-semibold mb-4">Search <span class="capitalize" x-text="getTabLabel()"></span></h3>
-        <div class="flex space-x-4">
+    <div class="bg-white border border-sky-200 rounded-md shadow-sm p-3 mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+            <label class="flex-1"><span class="block text-xs font-medium text-gray-600 mb-1">Search <span class="capitalize" x-text="getTabLabel()"></span></span>
             <input type="text" x-model="searchQuery"
-                   class="flex-1 px-4 py-2 border border-gray-300 rounded-md"
-                   placeholder="Search by number or description...">
+                   @keydown.enter="searchRecords"
+                   class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded"
+                   placeholder="Number or description">
+            </label>
             <button @click="searchRecords"
-                    class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
                     :disabled="searching">
                 <span x-show="!searching">Search</span>
                 <span x-show="searching">Searching...</span>
             </button>
             <button @click="loadPending"
-                    class="px-6 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">
-                Load Pending
+                    class="px-3 py-1.5 text-xs font-medium border border-amber-300 bg-amber-50 text-amber-800 rounded hover:bg-amber-100">
+                Load More
             </button>
         </div>
     </div>
@@ -80,48 +82,52 @@
     </div>
 
     <!-- Records List -->
-    <div x-show="!loading" class="bg-white rounded-lg shadow overflow-hidden">
+    <div x-show="!loading" class="bg-white border border-blue-200 rounded-md shadow-sm overflow-hidden">
+        <div class="px-3 py-2 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-blue-900" x-text="getTabLabel()"></h3>
+            <span class="text-xs text-blue-700" x-text="records.length + ' records'"></span>
+        </div>
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Short Description</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
-                    <th x-show="activeTab === 'changes'" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risk</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">State</th>
+                    <th x-show="activeTab === 'changes'" class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Risk</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 <template x-for="record in records" :key="record.sys_id">
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="font-medium" x-text="record.number"></span>
+                    <tr class="hover:bg-blue-50/40">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="text-sm font-semibold text-blue-700" x-text="record.number"></span>
                         </td>
-                        <td class="px-6 py-4">
-                            <span x-text="truncate(record.short_description, 60)"></span>
+                        <td class="px-4 py-3 max-w-xl">
+                            <span class="text-sm text-gray-800" x-text="truncate(record.short_description, 90)"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 text-xs rounded-full"
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 py-0.5 text-xs rounded"
                                   :class="getPriorityClass(record.priority)"
                                   x-text="'P' + (record.priority || '-')"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span x-text="record.state || '-'"></span>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="text-sm" x-text="record.state || '-'"></span>
                         </td>
-                        <td x-show="activeTab === 'changes'" class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 text-xs rounded-full"
+                        <td x-show="activeTab === 'changes'" class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 py-0.5 text-xs rounded"
                                   :class="getRiskClass(record.risk)"
                                   x-text="record.risk || '-'"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <button @click="importRecord(record)"
-                                    class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 mr-2">
-                                Import
-                            </button>
+                        <td class="px-4 py-3 whitespace-nowrap text-right">
                             <button @click="viewDetails(record)"
-                                    class="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200">
+                                    class="px-2 py-1 border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-100 mr-1">
                                 Details
+                            </button>
+                            <button @click="importRecord(record)"
+                                    class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
+                                Import
                             </button>
                         </td>
                     </tr>
@@ -136,22 +142,52 @@
     </div>
 
     <!-- Import Modal -->
-    <div x-show="showImportModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
-            <h3 class="text-lg font-semibold mb-4">Import as Work Package</h3>
-
-            <div class="mb-4 p-4 bg-gray-50 rounded">
-                <p class="text-sm text-gray-600">
-                    <span class="font-medium" x-text="selectedRecord?.number"></span>
-                    (<span class="capitalize" x-text="getRecordType()"></span>)
-                </p>
-                <p class="text-sm mt-1" x-text="selectedRecord?.short_description"></p>
+    <div x-show="showImportModal" x-cloak class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white border border-blue-200 rounded-md shadow-xl max-w-6xl w-full max-h-[92vh] overflow-y-auto">
+            <div class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-200">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-semibold text-slate-900">Import as Work Package</h3>
+                        <span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded" x-text="selectedRecord?.number"></span>
+                    </div>
+                    <p class="text-xs text-slate-500 capitalize" x-text="getRecordType().replace('_', ' ')"></p>
+                </div>
+                <button @click="showImportModal = false" class="p-1 text-slate-400 hover:text-slate-700" aria-label="Close import preview">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Change Type *</label>
-                <select x-model="importChangeType"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <div class="p-4 space-y-3">
+                <section class="border border-sky-200 rounded overflow-hidden">
+                    <div class="px-4 py-2 bg-sky-50 border-b border-sky-200 text-sm font-semibold text-sky-900">Ticket Summary</div>
+                    <div class="p-3">
+                        <p class="text-sm font-medium text-slate-900" x-text="selectedRecord?.short_description || 'No short description'"></p>
+                        <p class="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap" x-text="selectedRecord?.description || 'No detailed description provided.'"></p>
+                    </div>
+                </section>
+
+                <section class="border border-blue-200 rounded overflow-hidden">
+                    <div class="px-3 py-1.5 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                        <span class="text-xs font-semibold text-blue-900">ServiceNow Details</span>
+                        <span class="text-[11px] text-blue-600" x-text="getImportFields().length + ' populated fields'"></span>
+                    </div>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        <template x-for="field in getImportFields()" :key="field.key">
+                            <div class="px-3 py-2 border-b border-r border-blue-100 min-w-0" :class="field.long ? 'sm:col-span-2 lg:col-span-3' : ''">
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500" x-text="field.label"></dt>
+                                <dd class="mt-1 text-sm text-slate-800 whitespace-pre-wrap break-words" x-text="field.value"></dd>
+                            </div>
+                        </template>
+                        <div x-show="!getImportFields().length" class="px-3 py-3 text-xs text-slate-500">No additional ticket details are available.</div>
+                    </dl>
+                </section>
+
+                <section class="border border-indigo-200 rounded overflow-hidden">
+                    <div class="px-3 py-1.5 bg-indigo-50 border-b border-indigo-200 text-xs font-semibold text-indigo-900">Import Configuration</div>
+                    <div class="p-3">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Change Type <span class="text-red-600">*</span></label>
+                        <select x-model="importChangeType"
+                        class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded">
                     <option value="">Select change type</option>
                     <option value="network">Network (Firewall, Router, Switch)</option>
                     <option value="server">Server (VM, OS, Patching)</option>
@@ -161,16 +197,18 @@
                     <option value="security">Security (IAM, Cert)</option>
                     <option value="container">Container/K8s</option>
                     <option value="monitoring">Monitoring (Alerts)</option>
-                </select>
+                        </select>
+                    </div>
+                </section>
             </div>
 
-            <div class="flex justify-end space-x-4">
+            <div class="sticky bottom-0 flex justify-end gap-2 px-4 py-3 bg-white border-t border-blue-200">
                 <button @click="showImportModal = false"
-                        class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                        class="px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">
                     Cancel
                 </button>
                 <button @click="confirmImport"
-                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                        class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-slate-300"
                         :disabled="!importChangeType || importing">
                     <span x-show="!importing">Import</span>
                     <span x-show="importing">Importing...</span>
@@ -180,68 +218,59 @@
     </div>
 
     <!-- Details Modal -->
-    <div x-show="showDetailsModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[80vh] overflow-y-auto">
-            <div class="flex justify-between items-start mb-4">
-                <h3 class="text-lg font-semibold" x-text="selectedRecord?.number"></h3>
-                <button @click="showDetailsModal = false" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
+    <div x-show="showDetailsModal" x-cloak class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white border border-blue-200 rounded-md shadow-xl max-w-6xl w-full max-h-[92vh] overflow-y-auto">
+            <div class="sticky top-0 z-10 flex justify-between items-center px-4 py-3 bg-blue-50 border-b border-blue-200">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-semibold text-slate-900">Ticket Details</h3>
+                    <span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded" x-text="selectedRecord?.number"></span>
+                    <span class="text-xs capitalize text-slate-500" x-text="getRecordType().replace('_', ' ')"></span>
+                </div>
+                <button @click="showDetailsModal = false" class="p-1 text-gray-400 hover:text-gray-700" aria-label="Close details">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
-            <dl class="space-y-3">
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Short Description</dt>
-                    <dd x-text="selectedRecord?.short_description"></dd>
-                </div>
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Description</dt>
-                    <dd class="whitespace-pre-wrap text-sm" x-text="selectedRecord?.description || 'No description'"></dd>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Priority</dt>
-                        <dd x-text="'P' + (selectedRecord?.priority || '-')"></dd>
+            <div class="p-4 space-y-3">
+                <section class="border border-sky-200 rounded overflow-hidden">
+                    <div class="px-4 py-2 bg-sky-50 border-b border-sky-200 text-sm font-semibold text-sky-900">Summary</div>
+                    <div class="p-3">
+                        <p class="text-sm font-medium text-slate-900" x-text="selectedRecord?.short_description || 'No short description'"></p>
+                        <p class="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap" x-text="selectedRecord?.description || 'No detailed description provided.'"></p>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">State</dt>
-                        <dd x-text="selectedRecord?.state || '-'"></dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Category</dt>
-                        <dd x-text="selectedRecord?.category || '-'"></dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Assignment Group</dt>
-                        <dd x-text="getDisplayValue(selectedRecord?.assignment_group) || '-'"></dd>
-                    </div>
-                    <div x-show="activeTab === 'changes'">
-                        <dt class="text-sm font-medium text-gray-500">Risk</dt>
-                        <dd x-text="selectedRecord?.risk || '-'"></dd>
-                    </div>
-                    <div x-show="activeTab === 'changes'">
-                        <dt class="text-sm font-medium text-gray-500">Impact</dt>
-                        <dd x-text="selectedRecord?.impact || '-'"></dd>
-                    </div>
-                </div>
-            </dl>
+                </section>
 
-            <div class="mt-6 flex justify-end">
+                <section class="border border-blue-200 rounded overflow-hidden">
+                    <div class="px-3 py-1.5 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                        <span class="text-xs font-semibold text-blue-900">Record Information</span>
+                        <span class="text-[11px] text-blue-600" x-text="getImportFields().length + ' populated fields'"></span>
+                    </div>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        <template x-for="field in getImportFields()" :key="field.key">
+                            <div class="px-3 py-2 border-b border-r border-blue-100 min-w-0" :class="field.long ? 'sm:col-span-2 lg:col-span-3' : ''">
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500" x-text="field.label"></dt>
+                                <dd class="mt-1 text-sm text-slate-800 whitespace-pre-wrap break-words" x-text="field.value"></dd>
+                            </div>
+                        </template>
+                    </dl>
+                </section>
+            </div>
+
+            <div class="sticky bottom-0 flex justify-end gap-2 px-4 py-3 bg-white border-t border-blue-200">
+                <button @click="showDetailsModal = false" class="px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">Close</button>
                 <button @click="importRecord(selectedRecord); showDetailsModal = false"
-                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700">
                     Import as Work Package
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Message -->
-    <div x-show="message" x-cloak
-         :class="messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-         class="fixed bottom-4 right-4 p-4 rounded-md shadow-lg max-w-md">
-        <span x-text="message"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
+         :class="messageType === 'success' ? 'border-green-300' : 'border-red-300'">
+        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : 'bg-red-500'"></span>
+        <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Import successful' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
+        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -404,12 +433,12 @@ function servicenowPage() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.showMessage(`Imported! Work Package ID: ${data.work_package_id}`, 'success');
+                    this.showMessage(`${data.ticket_id || this.selectedRecord.number} was imported as a work package.`, 'success');
                     this.showImportModal = false;
 
                     setTimeout(() => {
                         window.location.href = `/work-packages/${data.work_package_id}`;
-                    }, 1500);
+                    }, 5000);
                 } else {
                     const error = await response.json();
                     this.showMessage(error.detail || 'Import failed', 'error');
@@ -447,14 +476,65 @@ function servicenowPage() {
 
         getDisplayValue(field) {
             if (!field) return '';
-            if (typeof field === 'object') return field.display_value || '';
+            if (Array.isArray(field)) return field.map(value => this.getDisplayValue(value)).filter(Boolean).join(', ');
+            if (typeof field === 'object') return field.display_value || field.value || '';
             return field;
+        },
+
+        getImportFields() {
+            if (!this.selectedRecord) return [];
+
+            const preferredKeys = [
+                'state', 'approval', 'priority', 'impact', 'urgency', 'risk', 'type',
+                'category', 'subcategory', 'assignment_group', 'assigned_to', 'caller_id',
+                'requested_for', 'opened_by', 'company', 'location', 'cmdb_ci',
+                'business_service', 'service_offering', 'contact_type',
+                'opened_at', 'sys_created_on', 'due_date', 'start_date', 'end_date',
+                'work_start', 'work_end', 'planned_start_date', 'planned_end_date',
+                'reason', 'justification', 'implementation_plan', 'test_plan', 'backout_plan',
+                'close_code', 'close_notes'
+            ];
+            const excluded = new Set([
+                'sys_id', 'number', 'short_description', 'description', 'sys_class_name',
+                'sys_mod_count', 'sys_tags', 'sys_domain', 'sys_domain_path',
+                'comments', 'work_notes'
+            ]);
+            const keys = [
+                ...preferredKeys.filter(key => key in this.selectedRecord),
+                ...Object.keys(this.selectedRecord).filter(key =>
+                    !preferredKeys.includes(key) && !excluded.has(key) && !key.startsWith('sys_')
+                ).sort()
+            ];
+
+            return [...new Set(keys)].map(key => {
+                const value = this.getDisplayValue(this.selectedRecord[key]);
+                const text = value === null || value === undefined ? '' : String(value).trim();
+                return {
+                    key,
+                    label: this.formatFieldLabel(key),
+                    value: text,
+                    long: text.length > 100 || ['justification', 'implementation_plan', 'test_plan', 'backout_plan', 'close_notes'].includes(key)
+                };
+            }).filter(field => field.value && field.value !== 'null');
+        },
+
+        formatFieldLabel(key) {
+            const labels = {
+                cmdb_ci: 'Configuration Item',
+                caller_id: 'Caller',
+                requested_for: 'Requested For',
+                sys_created_on: 'Created On',
+                implementation_plan: 'Implementation Plan',
+                test_plan: 'Test Plan',
+                backout_plan: 'Rollback Plan'
+            };
+            return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
         },
 
         showMessage(msg, type) {
             this.message = msg;
             this.messageType = type;
-            setTimeout(() => { this.message = ''; }, 4000);
+            setTimeout(() => { this.message = ''; }, 5000);
         }
     }
 }

@@ -1,39 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}Work Packages - Maker-Checker Platform{% endblock %}
+{% block title %}Work Packages - XGuard{% endblock %}
 
 {% block content %}
 <div x-data="workPackageList()" x-init="loadPackages()">
-    <div class="mb-8 flex justify-between items-center">
+    <div class="mb-4 flex justify-between items-center">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Work Packages</h1>
-            <p class="text-gray-600 mt-2">Manage your change requests</p>
+            <h1 class="text-2xl font-bold text-gray-900">Work Packages</h1>
+            <p class="text-sm text-gray-600 mt-1">Manage change requests through the XGuard workflow.</p>
         </div>
-        <a href="/work-packages/new" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+        <a href="/work-packages/new" class="bg-blue-600 text-white px-3 py-1.5 text-xs font-medium rounded hover:bg-blue-700">
             + New Work Package
         </a>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow p-4 mb-6">
-        <div class="flex flex-wrap gap-4">
+    <div class="bg-white border border-sky-200 rounded-md shadow-sm p-3 mb-4">
+        <div class="flex flex-wrap items-end gap-3">
+            <label class="flex-1 min-w-56">
+                <span class="block text-xs font-medium text-gray-600 mb-1">Ticket ID</span>
+                <div class="relative">
+                    <input x-model="filters.ticket_id" @input.debounce.350ms="searchPackages" placeholder="Search ticket ID"
+                           class="w-full px-2.5 py-1.5 pr-8 text-sm border border-gray-300 rounded">
+                    <button x-show="filters.ticket_id" @click="filters.ticket_id = ''; searchPackages()" type="button"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700" aria-label="Clear ticket search">&times;</button>
+                </div>
+            </label>
             <div>
-                <label class="block text-sm text-gray-600 mb-1">Status</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
                 <select x-model="filters.status" @change="loadPackages()"
-                        class="px-3 py-2 border border-gray-300 rounded-md">
+                        class="px-2.5 py-1.5 text-sm border border-gray-300 rounded">
                     <option value="">All Statuses</option>
                     <option value="draft">Draft</option>
                     <option value="pending_review">Pending Review</option>
                     <option value="in_review">In Review</option>
                     <option value="approved">Approved</option>
-                    <option value="validated">Validated</option>
+                    <option value="pending_execution">Pending Execution</option>
+                    <option value="executing">Executing</option>
                     <option value="completed">Completed</option>
                 </select>
             </div>
             <div>
-                <label class="block text-sm text-gray-600 mb-1">Change Type</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Change Type</label>
                 <select x-model="filters.change_type" @change="loadPackages()"
-                        class="px-3 py-2 border border-gray-300 rounded-md">
+                        class="px-2.5 py-1.5 text-sm border border-gray-300 rounded">
                     <option value="">All Types</option>
                     <option value="network">Network</option>
                     <option value="server">Server</option>
@@ -49,46 +59,50 @@
     </div>
 
     <!-- Work Packages Table -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="bg-white border border-blue-200 rounded-md shadow-sm overflow-hidden">
+        <div class="px-3 py-2 bg-blue-50 border-b border-blue-200 flex justify-between"><h2 class="text-sm font-semibold text-blue-900">All Work Packages</h2><span class="text-xs text-blue-700" x-text="total + ' records'"></span></div>
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ticket ID</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Tokens Used</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 <template x-for="pkg in packages" :key="pkg.id">
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
+                        <td class="px-3 py-2.5 whitespace-nowrap text-sm font-medium text-blue-700">
                             <a :href="'/work-packages/' + pkg.id" x-text="pkg.ticket_id"></a>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900" x-text="pkg.title"></td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 text-sm text-gray-900" x-text="pkg.title"></td>
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="pkg.change_type"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full"
                                   :class="pkg.execution_mode === 'automated' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
                                   x-text="pkg.execution_mode"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 py-2.5 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full"
                                   :class="getStatusClass(pkg.status)"
                                   x-text="formatStatus(pkg.status)"></span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                        <td class="px-3 py-2.5 whitespace-nowrap text-right text-xs font-medium text-gray-700"
+                            x-text="Number(pkg.tokens_used || 0).toLocaleString()"></td>
+                        <td class="px-3 py-2.5 whitespace-nowrap text-xs text-gray-500"
                             x-text="formatDate(pkg.created_at)"></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <a :href="'/work-packages/' + pkg.id" class="text-indigo-600 hover:text-indigo-900 mr-3">View</a>
+                        <td class="px-3 py-2.5 whitespace-nowrap text-right text-xs">
                             <a x-show="pkg.status === 'draft' || pkg.status === 'rework_required'"
                                :href="'/work-packages/' + pkg.id + '/edit'"
-                               class="text-yellow-600 hover:text-yellow-900">Edit</a>
+                               class="px-2 py-1 border border-amber-200 text-amber-700 rounded hover:bg-amber-50 mr-1">Edit</a>
+                            <a :href="'/work-packages/' + pkg.id" class="px-2 py-1 border border-blue-200 text-blue-700 rounded hover:bg-blue-50">View</a>
                         </td>
                     </tr>
                 </template>
@@ -133,7 +147,13 @@ function workPackageList() {
         totalPages: 1,
         filters: {
             status: '',
-            change_type: ''
+            change_type: '',
+            ticket_id: ''
+        },
+
+        searchPackages() {
+            this.page = 1;
+            this.loadPackages();
         },
 
         async loadPackages() {
@@ -142,6 +162,7 @@ function workPackageList() {
             let url = `/api/v1/work-packages/?page=${this.page}&page_size=${this.pageSize}`;
             if (this.filters.status) url += `&status=${this.filters.status}`;
             if (this.filters.change_type) url += `&change_type=${this.filters.change_type}`;
+            if (this.filters.ticket_id) url += `&ticket_id=${encodeURIComponent(this.filters.ticket_id)}`;
 
             try {
                 const response = await fetch(url);
@@ -164,9 +185,7 @@ function workPackageList() {
                 'pending_review': 'bg-yellow-100 text-yellow-800',
                 'in_review': 'bg-blue-100 text-blue-800',
                 'approved': 'bg-green-100 text-green-800',
-                'rejected': 'bg-red-100 text-red-800',
                 'rework_required': 'bg-orange-100 text-orange-800',
-                'validated': 'bg-green-100 text-green-800',
                 'executing': 'bg-purple-100 text-purple-800',
                 'completed': 'bg-green-100 text-green-800',
                 'execution_failed': 'bg-red-100 text-red-800'

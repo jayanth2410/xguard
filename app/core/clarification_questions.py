@@ -1,7 +1,7 @@
-"""Dynamic validation questions based on change type and task description"""
+﻿"""Dynamic clarification questions based on change type and task description"""
 from typing import Dict, List, Any, Optional
 import re
-from app.models.enums import ChangeType, ValidationQuestionType
+from app.models.enums import ChangeType, ClarificationQuestionType
 
 
 # Backup-specific questions
@@ -9,7 +9,7 @@ BACKUP_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "backup_source_path",
         "question_text": "Confirm the source path to backup",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "backup",
         "is_required": True,
         "order": 1,
@@ -18,7 +18,7 @@ BACKUP_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "backup_destination_path",
         "question_text": "Confirm the backup destination path",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "backup",
         "is_required": True,
         "order": 2,
@@ -27,7 +27,7 @@ BACKUP_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "backup_schedule",
         "question_text": "Confirm the backup schedule (day/time/timezone)",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "backup",
         "is_required": True,
         "order": 3,
@@ -36,7 +36,7 @@ BACKUP_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "backup_retention",
         "question_text": "What is the backup retention policy? (how many backups to keep)",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "backup",
         "is_required": True,
         "order": 4,
@@ -45,7 +45,7 @@ BACKUP_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "backup_disk_space",
         "question_text": "Is there sufficient disk space on the destination? (current free space)",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "backup",
         "is_required": True,
         "order": 5,
@@ -59,7 +59,7 @@ SERVICE_RESTART_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "service_name",
         "question_text": "Confirm the service name to restart",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "service",
         "is_required": True,
         "order": 1,
@@ -68,7 +68,7 @@ SERVICE_RESTART_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "service_downtime",
         "question_text": "Expected downtime during restart?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "service",
         "is_required": True,
         "order": 2,
@@ -77,7 +77,7 @@ SERVICE_RESTART_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "service_dependencies",
         "question_text": "What services depend on this service?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "service",
         "is_required": True,
         "order": 3,
@@ -91,7 +91,7 @@ COMMON_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "confirm_target_server",
         "question_text": "Confirm the target server (hostname/IP)",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "common",
         "is_required": True,
         "order": 100,
@@ -99,10 +99,46 @@ COMMON_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "emergency_contact",
         "question_text": "Emergency contact for escalation",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "common",
         "is_required": True,
         "order": 101,
+    },
+    {
+        "question_key": "approved_execution_window",
+        "question_text": "Confirm the approved execution window and timezone",
+        "question_type": ClarificationQuestionType.TEXT,
+        "category": "common", "is_required": True, "order": 102,
+    },
+    {
+        "question_key": "expected_impact_downtime",
+        "question_text": "Confirm the expected impact or downtime",
+        "question_type": ClarificationQuestionType.TEXT,
+        "category": "common", "is_required": True, "order": 103,
+    },
+    {
+        "question_key": "rollback_ready",
+        "question_text": "Confirm the rollback method or restoration point to use",
+        "question_type": ClarificationQuestionType.TEXT,
+        "category": "common", "is_required": True, "order": 104,
+    },
+    {
+        "question_key": "success_verification",
+        "question_text": "How will successful execution be verified?",
+        "question_type": ClarificationQuestionType.TEXT,
+        "category": "common", "is_required": True, "order": 105,
+    },
+    {
+        "question_key": "oncall_notified",
+        "question_text": "Has the monitoring or on-call team been notified?",
+        "question_type": ClarificationQuestionType.CONFIRMATION,
+        "category": "common", "is_required": True, "order": 106,
+    },
+    {
+        "question_key": "approval_reference",
+        "question_text": "Provide the related approval or reference number, if required",
+        "question_type": ClarificationQuestionType.TEXT,
+        "category": "common", "is_required": False, "order": 107,
     },
 ]
 
@@ -172,7 +208,7 @@ NETWORK_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "network_device_hostname_ip",
         "question_text": "Specify the device hostname and management IP",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "network",
         "is_required": True,
         "order": 1,
@@ -181,7 +217,7 @@ NETWORK_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "network_ports_vlans_acls",
         "question_text": "List the ports/VLANs/ACLs being modified",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "network",
         "is_required": True,
         "order": 2,
@@ -190,7 +226,7 @@ NETWORK_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "network_maintenance_window",
         "question_text": "Is there a maintenance window coordinated with NOC?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "network",
         "is_required": True,
         "order": 3,
@@ -199,7 +235,7 @@ NETWORK_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "network_traffic_impact",
         "question_text": "What is the expected traffic impact during the change?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "network",
         "is_required": True,
         "order": 4,
@@ -213,7 +249,7 @@ SERVER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "server_hostname_ip",
         "question_text": "Provide server hostname and IP address",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "server",
         "is_required": True,
         "order": 1,
@@ -222,7 +258,7 @@ SERVER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "server_reboot_required",
         "question_text": "Is a reboot required? If yes, estimated downtime?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "server",
         "is_required": True,
         "order": 2,
@@ -231,7 +267,7 @@ SERVER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "server_services_affected",
         "question_text": "What services will be affected during this change?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "server",
         "is_required": True,
         "order": 3,
@@ -240,7 +276,7 @@ SERVER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "server_backup_timestamp",
         "question_text": "Is there a recent backup? Provide backup timestamp",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "server",
         "is_required": True,
         "order": 4,
@@ -254,7 +290,7 @@ DATABASE_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "db_name_server_port",
         "question_text": "Specify database name, server, and port",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "database",
         "is_required": True,
         "order": 1,
@@ -263,7 +299,7 @@ DATABASE_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "db_tables_schemas",
         "question_text": "What tables/schemas will be modified?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "database",
         "is_required": True,
         "order": 2,
@@ -272,7 +308,7 @@ DATABASE_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "db_recovery_available",
         "question_text": "Is a transaction/point-in-time recovery available?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "database",
         "is_required": True,
         "order": 3,
@@ -281,7 +317,7 @@ DATABASE_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "db_row_count_lock_duration",
         "question_text": "Estimated row count and lock duration?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "database",
         "is_required": True,
         "order": 4,
@@ -295,7 +331,7 @@ CLOUD_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "cloud_account_region",
         "question_text": "Specify cloud account/subscription and region",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "cloud",
         "is_required": True,
         "order": 1,
@@ -304,7 +340,7 @@ CLOUD_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "cloud_resources",
         "question_text": "List resources being created/modified/deleted",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "cloud",
         "is_required": True,
         "order": 2,
@@ -313,7 +349,7 @@ CLOUD_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "cloud_iam_roles",
         "question_text": "IAM roles/policies impacted? List them",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "cloud",
         "is_required": True,
         "order": 3,
@@ -322,7 +358,7 @@ CLOUD_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "cloud_terraform_state",
         "question_text": "Is Terraform state locked? Provide state bucket",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "cloud",
         "is_required": True,
         "order": 4,
@@ -336,7 +372,7 @@ APPLICATION_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "app_name_version",
         "question_text": "Specify application name and version being deployed",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "application",
         "is_required": True,
         "order": 1,
@@ -345,7 +381,7 @@ APPLICATION_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "app_deployment_strategy",
         "question_text": "What deployment strategy will be used?",
-        "question_type": ValidationQuestionType.SELECT,
+        "question_type": ClarificationQuestionType.SELECT,
         "category": "application",
         "is_required": True,
         "order": 2,
@@ -354,7 +390,7 @@ APPLICATION_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "app_health_checks",
         "question_text": "What health checks will verify successful deployment?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "application",
         "is_required": True,
         "order": 3,
@@ -363,7 +399,7 @@ APPLICATION_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "app_feature_flags",
         "question_text": "Are there feature flags to control rollout?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "application",
         "is_required": False,
         "order": 4,
@@ -377,7 +413,7 @@ SECURITY_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "security_change_type",
         "question_text": "What type of security change is being made?",
-        "question_type": ValidationQuestionType.SELECT,
+        "question_type": ClarificationQuestionType.SELECT,
         "category": "security",
         "is_required": True,
         "order": 1,
@@ -386,7 +422,7 @@ SECURITY_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "security_scope",
         "question_text": "What is the scope of this security change?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "security",
         "is_required": True,
         "order": 2,
@@ -395,7 +431,7 @@ SECURITY_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "security_approval",
         "question_text": "Has this been approved by the Security team?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "security",
         "is_required": True,
         "order": 3,
@@ -404,7 +440,7 @@ SECURITY_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "security_audit_trail",
         "question_text": "How will this change be audited?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "security",
         "is_required": True,
         "order": 4,
@@ -418,7 +454,7 @@ CONTAINER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "k8s_cluster_namespace",
         "question_text": "Specify Kubernetes cluster and namespace",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "container",
         "is_required": True,
         "order": 1,
@@ -427,7 +463,7 @@ CONTAINER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "k8s_resources",
         "question_text": "What Kubernetes resources will be modified?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "container",
         "is_required": True,
         "order": 2,
@@ -436,7 +472,7 @@ CONTAINER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "k8s_replica_count",
         "question_text": "Current and desired replica count?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "container",
         "is_required": True,
         "order": 3,
@@ -445,7 +481,7 @@ CONTAINER_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "k8s_resource_limits",
         "question_text": "Are resource limits/requests being changed?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "container",
         "is_required": False,
         "order": 4,
@@ -459,7 +495,7 @@ MONITORING_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "monitoring_system",
         "question_text": "Which monitoring system is being modified?",
-        "question_type": ValidationQuestionType.SELECT,
+        "question_type": ClarificationQuestionType.SELECT,
         "category": "monitoring",
         "is_required": True,
         "order": 1,
@@ -468,7 +504,7 @@ MONITORING_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "monitoring_alerts_affected",
         "question_text": "Which alerts/dashboards will be affected?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "monitoring",
         "is_required": True,
         "order": 2,
@@ -477,7 +513,7 @@ MONITORING_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "monitoring_oncall_notified",
         "question_text": "Has the on-call team been notified?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "monitoring",
         "is_required": True,
         "order": 3,
@@ -486,7 +522,7 @@ MONITORING_QUESTIONS: List[Dict[str, Any]] = [
     {
         "question_key": "monitoring_silence_window",
         "question_text": "Is a silence/maintenance window needed?",
-        "question_type": ValidationQuestionType.TEXT,
+        "question_type": ClarificationQuestionType.TEXT,
         "category": "monitoring",
         "is_required": False,
         "order": 4,
@@ -514,7 +550,7 @@ def get_questions_for_change_type(
     title: str = "",
     ci_info: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
-    """Get validation questions based on change type and task description"""
+    """Get clarification questions based on change type and task description"""
 
     # Detect specific task type from description
     task_type = detect_task_type(description, title)
@@ -549,6 +585,9 @@ def get_questions_for_change_type(
     # Add CI info to common questions if available
     common_qs = [q.copy() for q in COMMON_QUESTIONS]
     if ci_info:
+        common_qs = [
+            q for q in common_qs if q["question_key"] != "confirm_target_server"
+        ]
         for q in common_qs:
             if q["question_key"] == "confirm_target_server" and ci_info.get("ci_name"):
                 q["placeholder"] = f"From ServiceNow CI: {ci_info['ci_name']}"
@@ -565,3 +604,4 @@ def get_all_question_categories() -> List[str]:
             categories.add(q["category"])
     categories.add("common")
     return list(categories)
+

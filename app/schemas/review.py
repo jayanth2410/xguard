@@ -21,6 +21,17 @@ class ReviewCreate(BaseModel):
     decision: ReviewDecision
     comments: Optional[str] = None
     code_review_notes: Optional[str] = None
+    rollback_review_notes: Optional[str] = None
+    security_review_notes: Optional[str] = None
+    impact_review_notes: Optional[str] = None
+    approved_execution_mode: Optional[ExecutionMode] = None
+
+
+class ReviewDraft(BaseModel):
+    """Editable notes saved before a review decision is submitted."""
+    comments: Optional[str] = None
+    code_review_notes: Optional[str] = None
+    rollback_review_notes: Optional[str] = None
     security_review_notes: Optional[str] = None
     impact_review_notes: Optional[str] = None
     approved_execution_mode: Optional[ExecutionMode] = None
@@ -34,6 +45,7 @@ class ReviewResponse(BaseModel):
     decision: str
     comments: Optional[str]
     code_review_notes: Optional[str]
+    rollback_review_notes: Optional[str]
     security_review_notes: Optional[str]
     impact_review_notes: Optional[str]
     approved_execution_mode: Optional[ExecutionMode]
