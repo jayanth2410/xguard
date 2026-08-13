@@ -10,7 +10,7 @@ There is no separate validation page. Required AI questions are answered while e
 
 ## Requirements
 
-- Python 3.12
+- Python 3.12 or 3.13
 - Network access to the configured AI and ServiceNow instances
 - Network access to target hosts for SSH or WinRM execution
 
@@ -92,10 +92,28 @@ python run_api.py
 python run_web.py
 ```
 
+Before the first login, create the five initial users once through the API:
+
+```powershell
+$body = @{ users = @(@{
+    username = "admin"
+    email = "admin@xguard.local"
+    password = "Choose-A-Strong-Password"
+    full_name = "XGuard Administrator"
+    role = "admin"
+    department = "Platform Operations"
+    is_active = $true
+}) } | ConvertTo-Json -Depth 4
+Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/users/seed" -ContentType "application/json" -Body $body
+```
+
+Submit up to five users with your own passwords. Suggested roles are `admin`, `maker`, `checker`, `executor`, and `auditor`; they initially have the same access to all XGuard features. The seed endpoint returns `409` and cannot change accounts after the first user exists.
+
 - UI: http://localhost:5000
 - API: http://localhost:8000
 - Interactive API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
+- Login: http://localhost:5000/login
 
 ## Project structure
 

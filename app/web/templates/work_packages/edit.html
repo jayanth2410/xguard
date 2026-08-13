@@ -6,7 +6,11 @@
 <div x-data="editWorkPackage()" x-init="loadWorkPackage()">
     <div class="mb-4 flex items-center justify-between gap-4">
         <div><h1 class="text-xl font-semibold text-gray-900">Edit Work Package</h1><p class="text-sm text-gray-500">Modify details, code, rollback, and answers.</p></div>
-        <a :href="`/work-packages/${workPackageId}`" class="text-sm text-blue-600 hover:underline">Back to view</a>
+        <a :href="`/work-packages/${workPackageId}`"
+           class="inline-flex shrink-0 items-center gap-1.5 rounded border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to View
+        </a>
     </div>
 
     <!-- Loading State -->
@@ -177,15 +181,24 @@
                 </template>
                 <p x-show="!form.ai_questions.length && !loading" class="p-4 text-sm text-gray-500">No clarification questions were generated.</p>
             </div>
-            <div x-show="hasAIClarificationQuestions()" class="border-t border-sky-200 bg-sky-50/60 p-3">
+            <div x-show="hasAIClarificationQuestions() || reworkInfo.required" x-cloak class="border-t border-sky-200 bg-sky-50/60 p-3">
                 <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span class="text-gray-600" x-text="answeredGenerationQuestionsCount() + ' of ' + requiredGenerationQuestionsCount() + ' required questions answered'"></span>
-                    <span class="font-medium text-green-700" x-show="!unansweredGenerationQuestions().length">Ready to generate</span>
+                    <span class="text-gray-600"
+                          x-text="reworkInfo.required && !requiredGenerationQuestionsCount()
+                              ? 'Reviewer feedback and previous code are ready for rework.'
+                              : answeredGenerationQuestionsCount() + ' of ' + requiredGenerationQuestionsCount() + ' required questions answered'"></span>
+                    <span class="font-medium text-green-700" x-show="!unansweredGenerationQuestions().length"
+                          x-text="reworkInfo.required ? 'Ready to rework' : 'Ready to generate'"></span>
                     <button type="button" @click="generateImplementation(false)"
                         class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                         :disabled="loading || unansweredGenerationQuestions().length > 0">
-                        <span x-show="!loading">Generate code</span><span x-show="loading">Generating...</span>
+                        <span x-show="!loading" x-text="reworkInfo.required ? 'Generate Reworked Code' : 'Generate Code'"></span><span x-show="loading">Generating...</span>
                     </button>
+                </div>
+
+                <div x-show="reworkInfo.rollbackNotes" class="mt-2 bg-white rounded-md p-3 border border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Rollback Review Notes:</p>
+                    <p class="mt-1 text-gray-800 whitespace-pre-wrap" x-text="reworkInfo.rollbackNotes"></p>
                 </div>
             </div>
         </section>
@@ -214,15 +227,21 @@
                 <span x-show="!loading">Save Changes</span>
                 <span x-show="loading">Saving...</span>
             </button>
+            <button type="button" x-show="reworkInfo.required" x-cloak @click="resubmitForReview"
+                    class="px-2.5 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                    :disabled="loading">
+                <span x-show="!loading">Resubmit for Review</span>
+                <span x-show="loading">Submitting...</span>
+            </button>
             </div>
         </div>
     </form>
 
-    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
-         :class="messageType === 'success' ? 'border-green-300' : messageType === 'info' ? 'border-blue-300' : 'border-red-300'">
-        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : messageType === 'info' ? 'bg-blue-500' : 'bg-red-500'"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex w-[min(92vw,24rem)] items-start gap-3 rounded-lg border border-l-4 px-4 py-3 shadow-xl"
+         :class="messageType === 'success' ? 'border-green-300 border-l-green-600 bg-green-50/95' : messageType === 'info' ? 'border-blue-300 border-l-blue-600 bg-blue-50/95' : 'border-red-300 border-l-red-600 bg-red-50/95'">
+        <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white/70" :class="messageType === 'success' ? 'bg-green-600' : messageType === 'info' ? 'bg-blue-600' : 'bg-red-600'"></span>
         <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : messageType === 'info' ? 'text-blue-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Success' : messageType === 'info' ? 'Information' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
-        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
+        <button type="button" @click="message = ''" class="-mr-1 rounded px-1.5 py-0.5 text-lg leading-none text-slate-400 hover:bg-white/70 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -262,6 +281,7 @@ function editWorkPackage() {
             required: false,
             comments: '',
             codeNotes: '',
+            rollbackNotes: '',
             securityNotes: '',
             impactNotes: '',
             reviewedAt: null
@@ -272,6 +292,10 @@ function editWorkPackage() {
                 const response = await fetch(`/api/v1/work-packages/${this.workPackageId}`);
                 if (response.ok) {
                     const data = await response.json();
+                    if (data.status === 'rejected') {
+                        window.location.replace(`/work-packages/${this.workPackageId}`);
+                        return;
+                    }
                     this.form.ticket_id = data.ticket_id || '';
                     this.form.title = data.title || '';
                     this.form.description = data.description || '';
@@ -307,7 +331,9 @@ function editWorkPackage() {
                 this.messageType = 'error';
             }
             this.pageLoading = false;
-            if (!this.hasAIClarificationQuestions() && !this.form.generated_code && !this.autoQuestionsRequested) {
+            const hasLegacyQuestionSet = this.form.ai_questions.length > 3
+                || this.form.ai_questions.some(question => question.source !== 'ai');
+            if ((!this.hasAIClarificationQuestions() || hasLegacyQuestionSet) && !this.form.generated_code && !this.autoQuestionsRequested) {
                 this.autoQuestionsRequested = true;
                 await this.generateImplementation(true);
             }
@@ -326,6 +352,7 @@ function editWorkPackage() {
                                 required: true,
                                 comments: reworkReview.comments || '',
                                 codeNotes: reworkReview.code_review_notes || '',
+                                rollbackNotes: reworkReview.rollback_review_notes || '',
                                 securityNotes: reworkReview.security_review_notes || '',
                                 impactNotes: reworkReview.impact_review_notes || '',
                                 reviewedAt: reworkReview.completed_at
@@ -338,6 +365,7 @@ function editWorkPackage() {
                             required: true,
                             comments: data.latest_review.comments || '',
                             codeNotes: data.latest_review.code_review_notes || '',
+                            rollbackNotes: data.latest_review.rollback_review_notes || '',
                             securityNotes: data.latest_review.security_review_notes || '',
                             impactNotes: data.latest_review.impact_review_notes || '',
                             reviewedAt: data.latest_review.completed_at
@@ -347,6 +375,16 @@ function editWorkPackage() {
             } catch (error) {
                 console.log('Could not load rework reason:', error);
             }
+        },
+
+        startRedirectCountdown(baseMessage, destination, destinationLabel, seconds = 4) {
+            let remaining = seconds;
+            this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            const timer = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) { clearInterval(timer); window.location.href = destination; }
+                else this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            }, 1000);
         },
 
         async submitForm() {
@@ -372,11 +410,9 @@ function editWorkPackage() {
                 });
 
                 if (response.ok) {
-                    this.message = 'Work package updated successfully!';
+                    const successMessage = 'Work package updated successfully.';
                     this.messageType = 'success';
-                    setTimeout(() => {
-                        window.location.href = `/work-packages/${this.workPackageId}`;
-                    }, 5000);
+                    this.startRedirectCountdown(successMessage, `/work-packages/${this.workPackageId}`, 'work package');
                 } else {
                     const error = await response.json();
                     let errorMsg = 'Failed to update work package';
@@ -398,6 +434,54 @@ function editWorkPackage() {
                 this.messageType = 'error';
             }
 
+            this.loading = false;
+        },
+
+        prepareFormForSave() {
+            this.form.target_hosts = this.targetHostsInput
+                ? this.targetHostsInput.split(',').map(host => host.trim()).filter(Boolean)
+                : [];
+            this.form.variables = {
+                ...(this.form.variables || {}),
+                platform: this.platformInput.trim()
+            };
+        },
+
+        async resubmitForReview() {
+            this.loading = true;
+            this.message = 'Saving corrections before resubmission...';
+            this.messageType = 'info';
+            this.prepareFormForSave();
+
+            try {
+                const saveResponse = await fetch(`/api/v1/work-packages/${this.workPackageId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.form)
+                });
+                if (!saveResponse.ok) {
+                    const error = await saveResponse.json();
+                    throw new Error(error.detail || 'Could not save the corrected work package.');
+                }
+
+                const submitResponse = await fetch(`/api/v1/work-packages/${this.workPackageId}/submit`, {
+                    method: 'POST'
+                });
+                if (!submitResponse.ok) {
+                    const error = await submitResponse.json();
+                    throw new Error(error.detail || 'Could not resubmit the work package for review.');
+                }
+
+                this.messageType = 'success';
+                this.startRedirectCountdown(
+                    'Corrections saved and work package resubmitted for review.',
+                    `/work-packages/${this.workPackageId}`,
+                    'work package'
+                );
+            } catch (error) {
+                this.message = error.message || 'Resubmission failed. Please try again.';
+                this.messageType = 'error';
+            }
             this.loading = false;
         },
 
@@ -462,7 +546,9 @@ function editWorkPackage() {
             }
 
             this.loading = true;
-            this.message = questionsOnly ? '' : 'Generating final implementation using your answers...';
+            this.message = questionsOnly ? '' : this.reworkInfo.required
+                ? 'Reworking the implementation using the reviewer feedback and previous code...'
+                : 'Generating final implementation using your answers...';
             this.messageType = questionsOnly ? '' : 'info';
 
             // Fetch CI from ServiceNow if ticket is from ServiceNow
@@ -511,7 +597,9 @@ function editWorkPackage() {
                     }
                     const remaining = this.unansweredGenerationQuestions().length;
                     this.message = questionsOnly && !data.ready_to_generate ? '' : data.ready_to_generate
-                        ? `Final implementation and rollback code generated. Intent: ${data.intent}.`
+                        ? this.reworkInfo.required
+                            ? 'Reworked implementation and rollback code generated. Review the changes, then resubmit for review.'
+                            : `Final implementation and rollback code generated. Intent: ${data.intent}.`
                         : remaining > 0
                             ? `${remaining} clarification question${remaining === 1 ? '' : 's'} generated. Answer the required question${remaining === 1 ? '' : 's'} below to enable Generate Final Code.`
                             : 'AI could not complete generation. Please try Generate Final Code again.';

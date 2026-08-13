@@ -146,9 +146,7 @@ class CheckerService:
             if review_data.approved_execution_mode:
                 work_package.execution_mode = review_data.approved_execution_mode
         elif review_data.decision == ReviewDecision.REJECTED:
-            # Preserve the rejected decision on the review, but return the package
-            # to the maker with the review comments for correction and resubmission.
-            work_package.status = WorkflowStatus.REWORK_REQUIRED
+            work_package.status = WorkflowStatus.REJECTED
         elif review_data.decision == ReviewDecision.REWORK_REQUIRED:
             work_package.status = WorkflowStatus.REWORK_REQUIRED
 

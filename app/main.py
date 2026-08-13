@@ -11,12 +11,10 @@ from app.core.database import engine, ensure_work_package_ai_columns
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan events"""
-    # Startup: Create database tables
+    """Create and upgrade application tables during startup."""
     Base.metadata.create_all(bind=engine)
     ensure_work_package_ai_columns()
     yield
-    # Shutdown: cleanup if needed
 
 
 app = FastAPI(

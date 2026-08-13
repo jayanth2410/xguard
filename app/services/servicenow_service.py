@@ -119,6 +119,59 @@ class ServiceNowService:
             logger.exception("servicenow_get_record_error", error=str(e))
             return None
 
+    async def get_ci_ip(self, ci_reference: Any) -> Optional[Dict[str, str]]:
+        """Resolve a ServiceNow CI reference to its CMDB IP address."""
+        if not self.enabled or not ci_reference:
+            return None
+
+        if isinstance(ci_reference, dict):
+            reference_value = str(ci_reference.get("value") or "").strip()
+            display_name = str(ci_reference.get("display_value") or "").strip()
+        else:
+            reference_value = ""
+            display_name = str(ci_reference).strip()
+
+        safe_value = reference_value.replace("^", "")
+        safe_name = display_name.replace("^", "")
+        if safe_value:
+            query = f"sys_id={safe_value}"
+        elif safe_name:
+            query = f"name={safe_name}^ORhost_name={safe_name}"
+        else:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
+                response = await client.get(
+                    f"{self.instance}/api/now/table/cmdb_ci_computer",
+                    params={
+                        "sysparm_query": query,
+                        "sysparm_fields": "sys_id,name,host_name,ip_address,os,os_version,sys_class_name",
+                        "sysparm_display_value": "false",
+                        "sysparm_limit": 1,
+                    },
+                    auth=self._get_auth(),
+                    headers=self._get_headers(),
+                )
+            if response.status_code != 200:
+                logger.error("servicenow_ci_lookup_failed", status=response.status_code)
+                return None
+            records = response.json().get("result", [])
+            if not records:
+                return None
+            ci = records[0]
+            return {
+                "ip_address": str(ci.get("ip_address") or "").strip(),
+                "ci_name": str(ci.get("name") or ci.get("host_name") or display_name),
+                "os": str(ci.get("os") or "").strip(),
+                "os_version": str(ci.get("os_version") or "").strip(),
+                "sys_class_name": str(ci.get("sys_class_name") or "").strip(),
+                "sys_id": str(ci.get("sys_id") or reference_value),
+            }
+        except Exception as exc:
+            logger.exception("servicenow_ci_lookup_error", error=str(exc))
+            return None
+
     async def get_records(
         self,
         table_type: SNTableType = SNTableType.INCIDENT,
@@ -173,11 +226,10 @@ class ServiceNowService:
         return await self.get_record(incident_number, SNTableType.INCIDENT)
 
     async def get_incidents(self, query: str = "", limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """Get list of incidents - sorted by most recent"""
-        if query and "ORDERBY" not in query.upper():
+        """Get only New incidents, filtered by ServiceNow before retrieval."""
+        query = self._new_state_query(query, "1")
+        if "ORDERBY" not in query.upper():
             query = f"{query}^ORDERBYDESCsys_created_on"
-        elif not query:
-            query = "ORDERBYDESCsys_created_on"
         return await self.get_records(SNTableType.INCIDENT, query, limit, offset)
 
     async def get_change_request(self, change_number: str) -> Optional[Dict[str, Any]]:
@@ -185,11 +237,10 @@ class ServiceNowService:
         return await self.get_record(change_number, SNTableType.CHANGE_REQUEST)
 
     async def get_change_requests(self, query: str = "", limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """Get list of change requests - sorted by most recent"""
-        if query and "ORDERBY" not in query.upper():
+        """Get only New change requests, filtered by ServiceNow before retrieval."""
+        query = self._new_state_query(query, "-5")
+        if "ORDERBY" not in query.upper():
             query = f"{query}^ORDERBYDESCsys_created_on"
-        elif not query:
-            query = "ORDERBYDESCsys_created_on"
         return await self.get_records(SNTableType.CHANGE_REQUEST, query, limit, offset)
 
     async def get_request(self, request_number: str) -> Optional[Dict[str, Any]]:
@@ -197,18 +248,30 @@ class ServiceNowService:
         return await self.get_record(request_number, SNTableType.REQUEST)
 
     async def get_requests(self, query: str = "", limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """Get list of service requests"""
+        """Get only New/Open service requests from ServiceNow."""
+        query = self._new_state_query(query, "1")
+        if "ORDERBY" not in query.upper():
+            query = f"{query}^ORDERBYDESCsys_created_on"
         return await self.get_records(SNTableType.REQUEST, query, limit, offset)
 
+    @staticmethod
+    def _new_state_query(query: str, state_value: str) -> str:
+        """Apply the state constraint to every OR branch of an encoded query."""
+        query = (query or "").strip("^")
+        if not query:
+            return f"state={state_value}"
+        branches = query.split("^OR")
+        return "^OR".join(
+            f"state={state_value}^{branch}" for branch in branches if branch
+        )
+
     async def get_pending_changes(self) -> List[Dict[str, Any]]:
-        """Get change requests pending approval"""
-        query = "state=1^ORstate=-5"  # New or Assess state
-        return await self.get_change_requests(query=query)
+        """Get New change requests."""
+        return await self.get_change_requests()
 
     async def get_pending_incidents(self) -> List[Dict[str, Any]]:
-        """Get incidents pending action"""
-        query = "state=1^ORstate=2"  # New or In Progress
-        return await self.get_incidents(query=query)
+        """Get New incidents."""
+        return await self.get_incidents()
 
     async def update_record(
         self,

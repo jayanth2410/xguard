@@ -30,6 +30,28 @@
         <div class="bg-sky-50/30 border border-sky-200 rounded-md shadow-sm p-4">
             <h3 class="text-sm font-semibold text-sky-900 mb-3">Remote Connection</h3>
 
+            <div x-show="ciInfo.ci_name || ciInfo.os || ciInfo.os_version" x-cloak class="mb-3 flex flex-wrap items-center gap-2 border-b border-sky-100 pb-3">
+                <span class="text-xs font-medium text-slate-500">Configuration Item</span>
+                <span class="rounded border border-sky-200 bg-white px-2 py-1 text-xs"><span class="text-slate-500">CI Name:</span> <span class="font-medium text-slate-800" x-text="ciInfo.ci_name || 'Not available'"></span></span>
+                <span class="rounded border border-sky-200 bg-white px-2 py-1 text-xs"><span class="text-slate-500">OS:</span> <span class="font-medium text-slate-800" x-text="ciInfo.os || 'Not available'"></span></span>
+                <span class="rounded border border-sky-200 bg-white px-2 py-1 text-xs"><span class="text-slate-500">OS Version:</span> <span class="font-medium text-slate-800" x-text="ciInfo.os_version || 'Not available'"></span></span>
+            </div>
+
+            <div x-show="targetSystems.length > 0" x-cloak class="mb-3 rounded border border-sky-200 bg-white">
+                <div class="flex items-center justify-between border-b border-sky-100 bg-sky-50 px-3 py-2">
+                    <div><p class="text-xs font-semibold text-sky-900">Target Systems</p><p class="text-[11px] text-sky-700">Select one target before testing or executing. A failure requires rollback on every target.</p></div>
+                    <span class="text-xs text-sky-700" x-text="targetSystems.length + ' targets'"></span>
+                </div>
+                <div class="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <template x-for="target in targetSystems" :key="target.ip">
+                        <button type="button" @click="selectTarget(target.ip)" class="flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-left" :class="connection.host === target.ip ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-200'" :disabled="executing">
+                            <span class="min-w-0"><span class="block truncate font-mono text-xs font-medium text-slate-800" x-text="target.ip"></span><span class="text-[11px] capitalize text-slate-500" x-text="target.status.replace('_', ' ')"></span></span>
+                            <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="targetStatusDot(target.status)"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 [&_label]:text-xs [&_input]:text-sm [&_input]:py-1.5">
                 <!-- Connection Type -->
                 <div class="lg:col-span-6 flex items-center gap-4 border-b border-sky-100 pb-2">
@@ -148,7 +170,7 @@
                            :disabled="executing">
                     <button type="button" @click="executeCommand"
                             class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
-                            :disabled="!connection.host || !connection.username || executing">
+                            :disabled="!connection.host || !connection.username || executing || hasFailure">
                         Execute
                     </button>
                 </div>
@@ -165,7 +187,8 @@
                     </button>
                 </div>
                 <textarea x-model="scriptContent" rows="12"
-                          class="w-full px-3 py-2 border border-gray-300 rounded font-mono text-xs min-h-64"
+                          readonly aria-readonly="true"
+                          class="w-full px-3 py-2 border border-gray-300 rounded bg-slate-50 text-slate-800 font-mono text-xs min-h-64 cursor-default focus:ring-0 focus:border-gray-300"
                           placeholder="#!/bin/bash&#10;echo 'Hello World'"></textarea>
                 <div class="mt-2 flex justify-end space-x-2">
                     <label class="flex items-center text-sm">
@@ -174,7 +197,7 @@
                     </label>
                     <button x-show="scriptSteps.length === 0" @click="executeScript"
                             class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
-                            :disabled="!connection.host || !scriptContent || executing">
+                            :disabled="!connection.host || !scriptContent || executing || hasFailure">
                         Execute Script
                     </button>
                 </div>
@@ -203,13 +226,13 @@
                                 <span x-show="step.failed" class="text-red-600 text-sm">✗</span>
                                 <button @click="executeStep(index)"
                                         class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        :disabled="executing || step.executed || isStepLocked(index)"
+                                        :disabled="executing || hasFailure || step.executed || isStepLocked(index)"
                                         x-show="!step.executed && !step.failed">
                                     Run
                                 </button>
                                 <button @click="retryStep(index)"
                                         class="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                                        :disabled="executing"
+                                        :disabled="executing || hasFailure"
                                         x-show="step.failed">
                                     Retry
                                 </button>
@@ -221,7 +244,7 @@
                     <div class="space-x-2">
                         <button @click="executeAllSteps"
                                 class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                :disabled="executing || scriptSteps.every(s => s.executed)">
+                                :disabled="executing || hasFailure || scriptSteps.every(s => s.executed)">
                             Run Remaining
                         </button>
                         <button @click="resetSteps"
@@ -349,7 +372,7 @@
                 </a>
                 <button @click="markComplete"
                         class="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
-                        :disabled="commandHistory.length === 0 || completing">
+                        :disabled="commandHistory.length === 0 || completing || hasFailure || (targetSystems.length > 0 && !targetSystems.every(target => target.status === 'succeeded'))">
                     <span x-show="!completing">Mark as Complete</span>
                     <span x-show="completing">Completing...</span>
                 </button>
@@ -372,11 +395,11 @@
         </div>
     </div>
 
-    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 shadow-lg"
-         :class="messageType === 'success' ? 'border-green-300' : messageType === 'warning' ? 'border-amber-300' : messageType === 'info' ? 'border-blue-300' : 'border-red-300'">
-        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : messageType === 'warning' ? 'bg-amber-500' : messageType === 'info' ? 'bg-blue-500' : 'bg-red-500'"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex w-[min(92vw,24rem)] items-start gap-3 rounded-lg border border-l-4 px-4 py-3 shadow-xl"
+         :class="messageType === 'success' ? 'border-green-300 border-l-green-600 bg-green-50/95' : messageType === 'warning' ? 'border-amber-300 border-l-amber-500 bg-amber-50/95' : messageType === 'info' ? 'border-blue-300 border-l-blue-600 bg-blue-50/95' : 'border-red-300 border-l-red-600 bg-red-50/95'">
+        <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white/70" :class="messageType === 'success' ? 'bg-green-600' : messageType === 'warning' ? 'bg-amber-500' : messageType === 'info' ? 'bg-blue-600' : 'bg-red-600'"></span>
         <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : messageType === 'warning' ? 'text-amber-800' : messageType === 'info' ? 'text-blue-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Execution complete' : messageType === 'warning' ? 'Attention required' : messageType === 'info' ? 'Information' : 'Execution issue'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
-        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
+        <button type="button" @click="message = ''" class="-mr-1 rounded px-1.5 py-0.5 text-lg leading-none text-slate-400 hover:bg-white/70 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -418,6 +441,12 @@ function executionPage(workPackageId) {
         rollbackInitiated: false,
         rollbackStatus: 'pending',
         rollbackSteps: [],
+        targetSystems: [],
+        ciInfo: {
+            ci_name: '',
+            os: '',
+            os_version: ''
+        },
 
         async loadData() {
             try {
@@ -427,10 +456,10 @@ function executionPage(workPackageId) {
                     // Set default port based on connection type
                     this.connection.port = this.connection.type === 'ssh' ? 22 : 5985;
 
-                    // Pre-fill target host if available
-                    if (this.pkg.target_hosts && this.pkg.target_hosts.length > 0) {
-                        this.connection.host = this.pkg.target_hosts[0];
-                    }
+                    // Use an explicit target IP first. Hostnames are not substituted for IPs.
+                    const targetIps = [...new Set((this.pkg.target_hosts || []).filter(target => this.isIpAddress(target)))];
+                    this.targetSystems = targetIps.map(ip => ({ ip, status: 'pending' }));
+                    if (targetIps.length) this.connection.host = targetIps[0];
 
                     // Fetch CI from ServiceNow if ticket starts with CHG, INC, or REQ
                     if (this.pkg.ticket_id) {
@@ -461,13 +490,22 @@ function executionPage(workPackageId) {
                 const response = await fetch(endpoint);
                 if (response.ok) {
                     const data = await response.json();
-                    // Extract CI (Configuration Item)
                     if (data.cmdb_ci) {
-                        const ci = data.cmdb_ci;
-                        const ciName = typeof ci === 'object' ? ci.display_value : ci;
-                        if (ciName && !this.connection.host) {
-                            this.connection.host = ciName;
-                            this.addTerminalLine(`ServiceNow CI detected: ${ciName}`, 'success');
+                        const ciResponse = await fetch(`/api/v1/servicenow/ci-address/${encodeURIComponent(ticketId)}`);
+                        if (ciResponse.ok) {
+                            const ci = await ciResponse.json();
+                            this.ciInfo = ci;
+                            this.selectConnectionTypeFromOS(ci.os, ci.sys_class_name);
+                            if (ci.ip_address && !this.connection.host) {
+                                this.connection.host = ci.ip_address;
+                                this.targetSystems = [{ ip: ci.ip_address, status: 'pending' }];
+                                this.addTerminalLine(`ServiceNow CI ${ci.ci_name || ''} resolved to ${ci.ip_address}`, 'success');
+                            } else if (!ci.ip_address && !this.connection.host) {
+                                this.addTerminalLine(`ServiceNow CI ${ci.ci_name || ''} has no IP address in CMDB`, 'error');
+                            }
+                        } else {
+                            const error = await ciResponse.json();
+                            this.addTerminalLine(error.detail || 'The ServiceNow CI has no usable IP address', 'error');
                         }
                     }
                 }
@@ -476,9 +514,62 @@ function executionPage(workPackageId) {
             }
         },
 
+        isIpAddress(value) {
+            if (!value) return false;
+            const text = String(value).trim();
+            const ipv4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+            return ipv4.test(text) || text.includes(':');
+        },
+
+        selectTarget(ip) {
+            if (this.executing || this.connection.host === ip) return;
+            this.connection.host = ip;
+            this.connectionStatus = '';
+            this.connectionMessage = '';
+            this.scriptSteps = this.scriptSteps.map(step => ({
+                ...step,
+                executed: false,
+                failed: false,
+                output: ''
+            }));
+            this.addTerminalLine(`Selected target ${ip}`, 'info');
+        },
+
+        setTargetStatus(ip, status) {
+            const target = this.targetSystems.find(item => item.ip === ip);
+            if (target) target.status = status;
+        },
+
+        targetStatusDot(status) {
+            return {
+                pending: 'bg-slate-300',
+                testing: 'bg-amber-400 animate-pulse',
+                connected: 'bg-sky-500',
+                running: 'bg-blue-500 animate-pulse',
+                succeeded: 'bg-green-500',
+                failed: 'bg-red-500',
+                rolling_back: 'bg-amber-500 animate-pulse',
+                rolled_back: 'bg-violet-500',
+                rollback_failed: 'bg-red-700'
+            }[status] || 'bg-slate-300';
+        },
+
+        selectConnectionTypeFromOS(os, systemClass) {
+            const system = `${os || ''} ${systemClass || ''}`.toLowerCase();
+            if (system.includes('windows')) {
+                this.connection.type = 'winrm';
+                this.connection.port = 5985;
+            } else if (['linux', 'unix', 'ubuntu', 'red hat', 'rhel', 'centos', 'aix', 'suse'].some(value => system.includes(value))) {
+                this.connection.type = 'ssh';
+                this.connection.port = 22;
+            }
+        },
+
         async testConnection() {
             this.connecting = true;
             this.connectionStatus = '';
+            const targetHost = this.connection.host;
+            this.setTargetStatus(targetHost, 'testing');
 
             try {
                 const response = await fetch('/api/v1/execution/remote/test-connection', {
@@ -499,15 +590,18 @@ function executionPage(workPackageId) {
                     this.connectionStatus = 'connected';
                     this.connectionMessage = data.message;
                     this.addTerminalLine(`Connected to ${this.connection.host}`, 'success');
+                    this.setTargetStatus(targetHost, 'connected');
                 } else {
                     this.connectionStatus = 'error';
                     this.connectionMessage = data.detail || 'Connection failed';
                     this.addTerminalLine(`Connection failed: ${data.detail}`, 'error');
+                    this.setTargetStatus(targetHost, 'failed');
                 }
             } catch (error) {
                 this.connectionStatus = 'error';
                 this.connectionMessage = 'Network error';
                 this.addTerminalLine('Network error during connection test', 'error');
+                this.setTargetStatus(targetHost, 'failed');
             }
 
             this.connecting = false;
@@ -527,12 +621,15 @@ function executionPage(workPackageId) {
             }
 
             this.executing = true;
+            const targetHost = this.connection.host;
+            this.setTargetStatus(targetHost, 'running');
 
             this.addTerminalLine(`$ ${command}`, 'command');
 
             if (this.dryRun) {
                 this.addTerminalLine('[DRY RUN] Command would be executed: ' + command, 'info');
                 this.currentCommand = '';
+                this.setTargetStatus(targetHost, 'pending');
                 this.executing = false;
                 return;
             }
@@ -563,6 +660,8 @@ function executionPage(workPackageId) {
                     this.addTerminalLine(detail, 'error');
                     this.message = detail;
                     this.messageType = 'error';
+                    this.hasFailure = true;
+                    this.setTargetStatus(targetHost, 'failed');
                     return;
                 }
 
@@ -585,14 +684,23 @@ function executionPage(workPackageId) {
                 this.commandHistory.push({
                     command,
                     result: data,
+                    host: targetHost,
                     timestamp: new Date().toLocaleTimeString()
                 });
+                if (data.success) {
+                    this.setTargetStatus(targetHost, 'succeeded');
+                } else {
+                    this.hasFailure = true;
+                    this.setTargetStatus(targetHost, 'failed');
+                }
                 this.currentCommand = '';
 
             } catch (error) {
                 this.addTerminalLine('Error executing command: ' + error.message, 'error');
                 this.message = 'Could not execute the command: ' + error.message;
                 this.messageType = 'error';
+                this.hasFailure = true;
+                this.setTargetStatus(targetHost, 'failed');
             } finally {
                 this.executing = false;
                 this.scrollTerminal();
@@ -603,6 +711,8 @@ function executionPage(workPackageId) {
             if (!this.scriptContent.trim()) return;
 
             this.executing = true;
+            const targetHost = this.connection.host;
+            this.setTargetStatus(targetHost, 'running');
             this.addTerminalLine('=== Executing Script ===', 'info');
 
             if (this.dryRun) {
@@ -613,6 +723,7 @@ function executionPage(workPackageId) {
                 if (this.scriptContent.split('\n').length > 20) {
                     this.addTerminalLine('  ... (truncated)', 'info');
                 }
+                this.setTargetStatus(targetHost, 'pending');
                 this.executing = false;
                 return;
             }
@@ -649,12 +760,14 @@ function executionPage(workPackageId) {
 
                 if (data.success) {
                     this.addTerminalLine(`=== Script completed successfully ===`, 'success');
+                    this.setTargetStatus(targetHost, 'succeeded');
                 } else {
                     this.hasFailure = true;
                     this.addTerminalLine(`=== Script failed with exit code: ${data.exit_code} ===`, 'error');
                     this.addTerminalLine('Rollback may be required. See Rollback section below.', 'error');
                     this.message = `Execution failed with exit code ${data.exit_code}. The work package was not completed. Review the error and run the rollback procedure.`;
                     this.messageType = 'error';
+                    this.setTargetStatus(targetHost, 'failed');
                 }
 
                 // Log script execution to API
@@ -662,12 +775,14 @@ function executionPage(workPackageId) {
                 this.commandHistory.push({
                     command: '[FULL SCRIPT]',
                     result: data,
+                    host: targetHost,
                     timestamp: new Date().toLocaleTimeString()
                 });
 
             } catch (error) {
                 this.hasFailure = true;
                 this.addTerminalLine('Error executing script: ' + error.message, 'error');
+                this.setTargetStatus(targetHost, 'failed');
             }
 
             this.executing = false;
@@ -785,6 +900,8 @@ function executionPage(workPackageId) {
             }
 
             this.executing = true;
+            const targetHost = this.connection.host;
+            this.setTargetStatus(targetHost, 'running');
             this.addTerminalLine(`=== Executing Step ${index + 1} ===`, 'info');
             this.addTerminalLine(`$ ${step.command.split('\n')[0]}${step.command.includes('\n') ? '...' : ''}`, 'command');
 
@@ -823,6 +940,7 @@ function executionPage(workPackageId) {
                     step.executed = true;
                     step.failed = false;
                     this.addTerminalLine(`Step ${index + 1} completed successfully`, 'success');
+                    if (index === this.scriptSteps.length - 1) this.setTargetStatus(targetHost, 'succeeded');
                 } else {
                     step.failed = true;
                     this.hasFailure = true;
@@ -830,6 +948,7 @@ function executionPage(workPackageId) {
                     this.addTerminalLine('Rollback may be required. See Rollback section below.', 'error');
                     this.message = `Execution failed at step ${index + 1}. The work package was not completed. Review the error and run the rollback procedure.`;
                     this.messageType = 'error';
+                    this.setTargetStatus(targetHost, 'failed');
                 }
 
                 // Log command to API
@@ -837,6 +956,7 @@ function executionPage(workPackageId) {
                 this.commandHistory.push({
                     command: step.command,
                     result: data,
+                    host: targetHost,
                     timestamp: new Date().toLocaleTimeString()
                 });
 
@@ -844,6 +964,7 @@ function executionPage(workPackageId) {
                 step.failed = true;
                 this.hasFailure = true;
                 this.addTerminalLine(`Error: ${error.message}`, 'error');
+                this.setTargetStatus(targetHost, 'failed');
             }
 
             this.executing = false;
@@ -882,6 +1003,16 @@ function executionPage(workPackageId) {
             this.addTerminalLine('Steps reset. Ready to re-execute.', 'info');
         },
 
+        startRedirectCountdown(baseMessage, destination, destinationLabel, seconds = 4) {
+            let remaining = seconds;
+            this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            const timer = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) { clearInterval(timer); window.location.href = destination; }
+                else this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            }, 1000);
+        },
+
         async markComplete() {
             this.completing = true;
 
@@ -893,7 +1024,7 @@ function executionPage(workPackageId) {
                     exit_code: cmd.result?.exit_code || 0,
                     success: cmd.result?.success || false,
                     timestamp: cmd.timestamp || '',
-                    host: this.connection.host
+                    host: cmd.host || this.connection.host
                 }));
 
                 const response = await fetch(`/api/v1/execution/${this.workPackageId}/complete`, {
@@ -918,9 +1049,7 @@ function executionPage(workPackageId) {
 
                     this.message = msg;
                     this.messageType = 'success';
-                    setTimeout(() => {
-                        window.location.href = `/work-packages/${this.workPackageId}`;
-                    }, 5000);
+                    this.startRedirectCountdown(msg, `/work-packages/${this.workPackageId}`, 'work package');
                 } else {
                     const error = await response.json();
                     const detail = error.detail || '';
@@ -1103,62 +1232,59 @@ function executionPage(workPackageId) {
             this.executing = true;
             this.rollbackInitiated = true;
             this.rollbackStatus = 'in_progress';
-            this.addTerminalLine('=== Executing Full Rollback Procedure ===', 'error');
+            const rollbackTargets = this.targetSystems.length
+                ? this.targetSystems
+                : [{ ip: this.connection.host, status: 'failed' }];
+            this.addTerminalLine(`=== Rolling back ${rollbackTargets.length} target system(s) ===`, 'error');
+            let failedRollbacks = 0;
 
-            try {
-                const response = await fetch('/api/v1/execution/remote/execute-script', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        host: this.connection.host,
-                        port: parseInt(this.connection.port),
-                        username: this.connection.username,
-                        password: this.connection.password,
-                        connection_type: this.connection.type,
-                        work_package_id: this.workPackageId,
-                        is_rollback: true,
-                        rollback_complete: true,
-                        command: this.pkg.rollback_procedure,
-                        timeout: 600
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.stdout) {
-                    data.stdout.split('\n').forEach(line => {
-                        this.addTerminalLine(line, 'output');
+            for (const target of rollbackTargets) {
+                this.connection.host = target.ip;
+                this.setTargetStatus(target.ip, 'rolling_back');
+                this.addTerminalLine(`=== Rollback on ${target.ip} ===`, 'command');
+                try {
+                    const response = await fetch('/api/v1/execution/remote/execute-script', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            host: target.ip,
+                            port: parseInt(this.connection.port),
+                            username: this.connection.username,
+                            password: this.connection.password,
+                            connection_type: this.connection.type,
+                            work_package_id: this.workPackageId,
+                            is_rollback: true,
+                            rollback_complete: true,
+                            command: this.pkg.rollback_procedure,
+                            timeout: 600
+                        })
                     });
+                    const data = await response.json();
+                    if (data.stdout) data.stdout.split('\n').forEach(line => this.addTerminalLine(`[${target.ip}] ${line}`, 'output'));
+                    if (data.stderr) data.stderr.split('\n').filter(line => line.trim()).forEach(line => this.addTerminalLine(`[${target.ip}] ${line}`, 'error'));
+                    if (response.ok && data.success) {
+                        this.setTargetStatus(target.ip, 'rolled_back');
+                        this.addTerminalLine(`Rollback completed on ${target.ip}`, 'success');
+                    } else {
+                        failedRollbacks += 1;
+                        this.setTargetStatus(target.ip, 'rollback_failed');
+                        this.addTerminalLine(`Rollback failed on ${target.ip}: ${data.detail || data.stderr || 'Unknown error'}`, 'error');
+                    }
+                    this.commandHistory.push({ command: `[FULL ROLLBACK] ${target.ip}`, result: data, host: target.ip, timestamp: new Date().toLocaleTimeString() });
+                } catch (error) {
+                    failedRollbacks += 1;
+                    this.setTargetStatus(target.ip, 'rollback_failed');
+                    this.addTerminalLine(`Rollback connection failed on ${target.ip}: ${error.message}`, 'error');
                 }
+            }
 
-                if (data.stderr) {
-                    data.stderr.split('\n').forEach(line => {
-                        if (line.trim()) this.addTerminalLine(line, 'error');
-                    });
-                }
-
-                if (data.success) {
-                    this.rollbackStatus = 'completed';
-                    this.addTerminalLine('=== Rollback completed successfully ===', 'success');
-                    this.message = 'Execution failed, but rollback completed successfully. The work package was restored and has not been marked as completed.';
-                    this.messageType = 'warning';
-                } else {
-                    this.rollbackStatus = 'failed';
-                    this.addTerminalLine(`=== Rollback failed with exit code: ${data.exit_code} ===`, 'error');
-                    this.message = 'Execution and rollback both failed. The work package was not completed and manual intervention is required.';
-                    this.messageType = 'error';
-                }
-
-                this.commandHistory.push({
-                    command: '[FULL ROLLBACK]',
-                    result: data,
-                    timestamp: new Date().toLocaleTimeString()
-                });
-
-            } catch (error) {
+            if (failedRollbacks === 0) {
+                this.rollbackStatus = 'completed';
+                this.message = `Rollback completed on all ${rollbackTargets.length} target systems. The work package was not marked as completed.`;
+                this.messageType = 'warning';
+            } else {
                 this.rollbackStatus = 'failed';
-                this.addTerminalLine('Error executing rollback: ' + error.message, 'error');
-                this.message = `Rollback could not be executed: ${error.message}. The work package was not completed and manual intervention is required.`;
+                this.message = `Rollback failed on ${failedRollbacks} of ${rollbackTargets.length} target systems. Manual intervention is required.`;
                 this.messageType = 'error';
             }
 

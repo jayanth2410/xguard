@@ -1,4 +1,6 @@
 """ServiceNow Integration API endpoints"""
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -26,6 +28,56 @@ async def test_servicenow_connection():
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result.get("error", "Connection failed"))
     return result
+
+
+@router.get("/lookup/{ticket_number}")
+async def lookup_new_ticket(ticket_number: str):
+    """Look up an exact New ticket across supported ServiceNow tables."""
+    number = ticket_number.strip().upper()
+    if not number:
+        raise HTTPException(status_code=400, detail="Ticket number is required")
+
+    incidents, changes, requests = await asyncio.gather(
+        servicenow.get_incidents(query=f"number={number}", limit=1),
+        servicenow.get_change_requests(query=f"number={number}", limit=1),
+        servicenow.get_requests(query=f"number={number}", limit=1),
+    )
+    matches = (
+        ("incident", incidents),
+        ("change_request", changes),
+        ("request", requests),
+    )
+    for record_type, records in matches:
+        if records:
+            return {"record_type": record_type, "record": records[0]}
+    raise HTTPException(status_code=404, detail=f"New ticket {number} was not found")
+
+
+@router.get("/ci-address/{ticket_number}")
+async def get_ticket_ci_address(ticket_number: str):
+    """Resolve a ticket's configuration item to its CMDB IP address."""
+    number = ticket_number.strip().upper()
+    if number.startswith("CHG"):
+        record = await servicenow.get_change_request(number)
+    elif number.startswith("REQ"):
+        record = await servicenow.get_request(number)
+    elif number.startswith("INC"):
+        record = await servicenow.get_incident(number)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported ServiceNow ticket number")
+
+    if not record:
+        raise HTTPException(status_code=404, detail="ServiceNow ticket not found")
+    if not record.get("cmdb_ci"):
+        raise HTTPException(status_code=404, detail="No configuration item is assigned to this ticket")
+
+    ci_address = await servicenow.get_ci_ip(record["cmdb_ci"])
+    if not ci_address:
+        raise HTTPException(
+            status_code=404,
+            detail="The assigned configuration item was not found in ServiceNow CMDB",
+        )
+    return ci_address
 
 
 # ============ INCIDENTS ============

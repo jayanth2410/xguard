@@ -69,10 +69,6 @@
                 <span x-show="!searching">Search</span>
                 <span x-show="searching">Searching...</span>
             </button>
-            <button @click="loadPending"
-                    class="px-3 py-1.5 text-xs font-medium border border-amber-300 bg-amber-50 text-amber-800 rounded hover:bg-amber-100">
-                Load More
-            </button>
         </div>
     </div>
 
@@ -139,6 +135,14 @@
                 </tr>
             </tbody>
         </table>
+        <div x-show="records.length > 0 && hasMore" class="flex justify-center border-t border-blue-100 bg-slate-50 px-3 py-3">
+            <button type="button" @click="loadMore"
+                    class="px-4 py-1.5 text-xs font-medium border border-blue-300 bg-white text-blue-700 rounded hover:bg-blue-50 disabled:opacity-50"
+                    :disabled="loadingMore">
+                <span x-show="!loadingMore">Load More</span>
+                <span x-show="loadingMore">Loading...</span>
+            </button>
+        </div>
     </div>
 
     <!-- Import Modal -->
@@ -266,11 +270,11 @@
         </div>
     </div>
 
-    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
-         :class="messageType === 'success' ? 'border-green-300' : 'border-red-300'">
-        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : 'bg-red-500'"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex w-[min(92vw,24rem)] items-start gap-3 rounded-lg border border-l-4 px-4 py-3 shadow-xl"
+         :class="messageType === 'success' ? 'border-green-300 border-l-green-600 bg-green-50/95' : 'border-red-300 border-l-red-600 bg-red-50/95'">
+        <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white/70" :class="messageType === 'success' ? 'bg-green-600' : 'bg-red-600'"></span>
         <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Import successful' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
-        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
+        <button type="button" @click="message = ''" class="-mr-1 rounded px-1.5 py-0.5 text-lg leading-none text-slate-400 hover:bg-white/70 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -294,6 +298,11 @@ function servicenowPage() {
         importing: false,
         message: '',
         messageType: '',
+        pageSize: 50,
+        offset: 0,
+        hasMore: false,
+        loadingMore: false,
+        currentQuery: '',
 
         async init() {
             await this.testConnection();
@@ -303,12 +312,17 @@ function servicenowPage() {
 
         async loadAllRecords() {
             this.loading = true;
+            this.offset = 0;
+            this.currentQuery = '';
+            this.searchQuery = '';
             try {
-                const url = this.getApiEndpoint() + '?limit=50';
+                const url = `${this.getApiEndpoint()}?limit=${this.pageSize}&offset=0`;
                 const response = await fetch(url);
                 if (response.ok) {
                     const data = await response.json();
                     this.records = data.records || [];
+                    this.offset = this.records.length;
+                    this.hasMore = this.records.length === this.pageSize;
                 }
             } catch (error) {
                 console.error('Failed to load records', error);
@@ -368,15 +382,43 @@ function servicenowPage() {
             this.loading = true;
 
             try {
-                let url = this.getApiEndpoint();
-                if (this.searchQuery) {
-                    url += `?query=numberLIKE${this.searchQuery}^ORshort_descriptionLIKE${this.searchQuery}`;
+                const term = this.searchQuery.trim();
+                if (/^[A-Za-z]+\d+$/.test(term)) {
+                    const response = await fetch(`/api/v1/servicenow/lookup/${encodeURIComponent(term)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const tabs = { incident: 'incidents', change_request: 'changes', request: 'requests' };
+                        this.activeTab = tabs[data.record_type] || this.activeTab;
+                        this.records = [data.record];
+                        this.offset = 1;
+                        this.currentQuery = '';
+                        this.hasMore = false;
+                    } else {
+                        this.records = [];
+                        this.hasMore = false;
+                        const error = await response.json();
+                        this.showMessage(error.detail || 'Ticket not found', 'error');
+                    }
+                    this.searching = false;
+                    this.loading = false;
+                    return;
                 }
+
+                this.offset = 0;
+                this.currentQuery = term
+                    ? `numberLIKE${term}^ORshort_descriptionLIKE${term}`
+                    : '';
+                let url = this.getApiEndpoint();
+                const params = new URLSearchParams({ limit: this.pageSize, offset: 0 });
+                if (this.currentQuery) params.set('query', this.currentQuery);
+                url += `?${params.toString()}`;
 
                 const response = await fetch(url);
                 if (response.ok) {
                     const data = await response.json();
                     this.records = data.records || [];
+                    this.offset = this.records.length;
+                    this.hasMore = this.records.length === this.pageSize;
                 } else {
                     this.showMessage('Failed to search records', 'error');
                 }
@@ -386,6 +428,32 @@ function servicenowPage() {
 
             this.searching = false;
             this.loading = false;
+        },
+
+        async loadMore() {
+            if (this.loadingMore || !this.hasMore) return;
+            this.loadingMore = true;
+            try {
+                const params = new URLSearchParams({
+                    limit: this.pageSize,
+                    offset: this.offset
+                });
+                if (this.currentQuery) params.set('query', this.currentQuery);
+                const response = await fetch(`${this.getApiEndpoint()}?${params.toString()}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const nextRecords = data.records || [];
+                    const existingIds = new Set(this.records.map(record => record.sys_id));
+                    this.records.push(...nextRecords.filter(record => !existingIds.has(record.sys_id)));
+                    this.offset += nextRecords.length;
+                    this.hasMore = nextRecords.length === this.pageSize;
+                } else {
+                    this.showMessage('Failed to load more records', 'error');
+                }
+            } catch (error) {
+                this.showMessage('Failed to load more records', 'error');
+            }
+            this.loadingMore = false;
         },
 
         async loadPending() {
@@ -433,12 +501,10 @@ function servicenowPage() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.showMessage(`${data.ticket_id || this.selectedRecord.number} was imported as a work package.`, 'success');
+                    const importMessage = `${data.ticket_id || this.selectedRecord.number} was imported as a work package.`;
+                    this.showMessage(importMessage, 'success', false);
                     this.showImportModal = false;
-
-                    setTimeout(() => {
-                        window.location.href = `/work-packages/${data.work_package_id}`;
-                    }, 5000);
+                    this.startRedirectCountdown(importMessage, `/work-packages/${data.work_package_id}`, 'work package');
                 } else {
                     const error = await response.json();
                     this.showMessage(error.detail || 'Import failed', 'error');
@@ -531,10 +597,24 @@ function servicenowPage() {
             return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
         },
 
-        showMessage(msg, type) {
+        startRedirectCountdown(baseMessage, destination, destinationLabel, seconds = 4) {
+            let remaining = seconds;
+            this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            const timer = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    window.location.href = destination;
+                    return;
+                }
+                this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            }, 1000);
+        },
+
+        showMessage(msg, type, autoDismiss = true) {
             this.message = msg;
             this.messageType = type;
-            setTimeout(() => { this.message = ''; }, 5000);
+            if (autoDismiss) setTimeout(() => { this.message = ''; }, 4000);
         }
     }
 }

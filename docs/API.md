@@ -38,7 +38,7 @@ Work-package responses include `tokens_used`, the cumulative number of tokens re
 |---|---|---|
 | POST | `/ai/generate-script` | Generate clarification questions or final implementation and rollback content |
 
-First call the endpoint with package context. If `ready_to_generate` is `false`, display and answer the returned `questions`. Call it again with `question_responses`; the final result is persisted when `work_package_id` is provided.
+Call the endpoint with package context. It generates final code immediately when the request is technically clear. If a required technical detail is genuinely missing, `ready_to_generate` is `false` and the response contains no more than three blocking `questions`; call it again with `question_responses`. Connection details and governance information are not clarification questions. The final result is persisted when `work_package_id` is provided.
 
 ```json
 {
@@ -109,6 +109,8 @@ Use `POST http://localhost:8000/api/v1/execution/remote/test-connection` in Post
 
 Single-command execution adds `work_package_id`, `command`, `timeout`, `is_rollback`, and `rollback_complete` to the connection fields. Normal execution requires reviewer approval. Rollback is allowed only after execution starts or fails.
 
+When a work package has multiple target IPs, the Execution page tracks each target independently. The operator selects and executes one target at a time. If any target fails, further implementation execution is locked and full rollback runs sequentially against every configured target, including the failed target. Completion is enabled only after every target succeeds.
+
 ## Workflow and audit
 
 | Method | Path | Purpose |
@@ -122,6 +124,8 @@ Single-command execution adds `work_package_id`, `command`, `timeout`, `is_rollb
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/servicenow/test-connection` | Test configured ServiceNow access |
+| GET | `/servicenow/lookup/{ticket_number}` | Find an exact New ticket across incidents, changes, and requests |
+| GET | `/servicenow/ci-address/{ticket_number}` | Resolve the ticket's CI name, IP address, OS, and OS version from CMDB |
 | GET | `/servicenow/incidents` | List incidents |
 | GET | `/servicenow/incidents/pending` | List pending incidents |
 | GET | `/servicenow/incidents/{number}` | Get incident details |
@@ -132,7 +136,7 @@ Single-command execution adds `work_package_id`, `command`, `timeout`, `is_rollb
 | GET | `/servicenow/requests/{number}` | Get request details |
 | POST | `/servicenow/import` | Import a record as a work package |
 
-List endpoints accept `query`, `limit` (maximum 200), and `offset` where applicable.
+List endpoints accept `query`, `limit` (maximum 200), and `offset` where applicable. XGuard adds the New-state constraint directly to the ServiceNow encoded query before making the request: incidents use `state=1`, changes use `state=-5`, and service requests use `state=1`. Records in other states are not downloaded and filtered locally.
 
 Import example:
 
@@ -161,3 +165,39 @@ Error bodies follow FastAPI's format:
   "detail": "A clear description of the problem"
 }
 ```
+
+## Users and login
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/users/seed` | Create the five initial users when the users table is empty |
+| POST | `/users/login` | Verify an active user by username/email and password |
+
+One-time seed request:
+
+```json
+{
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@xguard.local",
+      "password": "Choose-A-Strong-Password",
+      "full_name": "XGuard Administrator",
+      "role": "admin",
+      "department": "Platform Operations",
+      "is_active": true
+    }
+  ]
+}
+```
+
+Submit up to five users and assign each one its own password. Suggested roles are `admin`, `maker`, `checker`, `executor`, and `auditor`. Seeding is permanently rejected after any user exists. Login request:
+
+```json
+{
+  "username": "admin",
+  "password": "Choose-A-Strong-Temporary-Password"
+}
+```
+
+The Flask UI creates its signed session only after this API verifies the credentials. Roles are recorded now, but all roles currently have access to every feature until authorization rules are configured.

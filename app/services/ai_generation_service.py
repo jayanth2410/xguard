@@ -100,6 +100,11 @@ class AIGenerationService:
         platform: str = "",
         question_responses: Optional[List[Dict[str, Any]]] = None,
         force_final_generation: bool = False,
+        review_feedback: Optional[Dict[str, Any]] = None,
+        previous_implementation_code: str = "",
+        previous_rollback_code: str = "",
+        previous_implementation_procedure: str = "",
+        previous_impact_analysis: Optional[Dict[str, Any]] = None,
     ) -> AIGenerationResult:
         if not title.strip() and not description.strip():
             raise ValueError("A title or description is required for AI generation")
@@ -112,6 +117,11 @@ class AIGenerationService:
             platform=platform,
             question_responses=question_responses or [],
             force_final_generation=force_final_generation,
+            review_feedback=review_feedback or {},
+            previous_implementation_code=previous_implementation_code,
+            previous_rollback_code=previous_rollback_code,
+            previous_implementation_procedure=previous_implementation_procedure,
+            previous_impact_analysis=previous_impact_analysis or {},
         )
         try:
             messages = [
@@ -165,8 +175,38 @@ class AIGenerationService:
         except (json.JSONDecodeError, ValidationError) as exc:
             raise ValueError("Groq returned an invalid generation response") from exc
 
+        self._supply_safe_recovery_when_rollback_is_impossible(result)
         self._validate_result(result)
         return result
+
+    @staticmethod
+    def _supply_safe_recovery_when_rollback_is_impossible(
+        result: AIGenerationResult,
+    ) -> None:
+        """Represent irreversible changes with safe recovery checks, never fake undo steps."""
+        if not result.ready_to_generate or result.rollback_code.strip():
+            return
+
+        if result.language.lower() == "powershell":
+            result.rollback_code = (
+                "# The completed restart cannot be reversed. Perform recovery verification.\n"
+                "$ErrorActionPreference = 'Stop'\n"
+                "Write-Host 'Verifying that the server recovered after restart'\n"
+                "Get-CimInstance Win32_OperatingSystem | Select-Object CSName, LastBootUpTime\n"
+                "Get-Service | Where-Object Status -eq 'Stopped' | Select-Object Name, DisplayName\n"
+                "Write-Host 'If a required service is stopped, start only that approved service.'"
+            )
+        else:
+            result.rollback_code = (
+                "#!/usr/bin/env bash\n"
+                "set -euo pipefail\n"
+                "# The completed restart cannot be reversed. Perform recovery verification.\n"
+                "echo 'Verifying that the server recovered after restart'\n"
+                "uptime\n"
+                "free -h\n"
+                "systemctl --failed --no-pager || true\n"
+                "echo 'If a required service failed, start only that approved service.'"
+            )
 
     @staticmethod
     def _validate_result(result: AIGenerationResult) -> None:
@@ -180,6 +220,7 @@ class AIGenerationService:
             )
 
         seen = set()
+        result.questions = result.questions[:3]
         for index, question in enumerate(result.questions, start=1):
             if question.question_key in seen:
                 raise ValueError(f"AI returned duplicate question key: {question.question_key}")
@@ -200,15 +241,32 @@ class AIGenerationService:
         platform: str,
         question_responses: List[Dict[str, Any]],
         force_final_generation: bool,
+        review_feedback: Dict[str, Any],
+        previous_implementation_code: str,
+        previous_rollback_code: str,
+        previous_implementation_procedure: str,
+        previous_impact_analysis: Dict[str, Any],
     ) -> str:
         answers_json = json.dumps(question_responses, indent=2, default=str)
+        feedback_json = json.dumps(review_feedback, indent=2, default=str)
+        impact_json = json.dumps(previous_impact_analysis, indent=2, default=str)
+        is_rework = any(str(value or "").strip() for value in review_feedback.values())
         final_instruction = (
             "FINAL GENERATION REQUEST: The user has answered the questions already presented. "
             "Set ready_to_generate to true and generate the final implementation and rollback code. "
             "Only return ready_to_generate=false when a specific new critical detail is missing, "
             "and in that case you MUST include the corresponding question."
             if force_final_generation else
-            "ANALYSIS REQUEST: Identify any critical missing details before final generation."
+            "ANALYSIS REQUEST: Generate final code immediately unless an executable command "
+            "cannot be produced safely without one specific missing technical value."
+        )
+        rework_instruction = (
+            "REWORK REQUEST: Revise the existing implementation using every applicable reviewer note. "
+            "Return complete replacement implementation and rollback content, not a diff. Preserve correct, "
+            "unaffected behavior, and do not claim a reviewer concern is addressed unless the output actually "
+            "addresses it. Ask a clarification question only if a reviewer-required technical value is truly missing."
+            if is_rework else
+            "NEW GENERATION REQUEST: There is no reviewer feedback to apply."
         )
         return f"""
 Analyse this IT change request and generate safe implementation content.
@@ -231,23 +289,47 @@ OPERATING SYSTEM / PLATFORM (may be empty):
 CLARIFICATION ANSWERS:
 {answers_json if question_responses else 'No answers provided yet'}
 
+REVIEW / REWORK INSTRUCTIONS:
+{rework_instruction}
+
+REVIEWER FEEDBACK:
+{feedback_json if is_rework else 'No reviewer feedback'}
+
+PREVIOUS IMPLEMENTATION CODE:
+{previous_implementation_code or 'No previous implementation code'}
+
+PREVIOUS ROLLBACK CODE:
+{previous_rollback_code or 'No previous rollback code'}
+
+PREVIOUS IMPLEMENTATION PROCEDURE:
+{previous_implementation_procedure or 'No previous implementation procedure'}
+
+PREVIOUS IMPACT ANALYSIS:
+{impact_json if previous_impact_analysis else 'No previous impact analysis'}
+
 CURRENT REQUEST MODE:
 {final_instruction}
 
 Requirements:
-1. Infer the actual intent and most suitable change type.
+1. Infer the actual intent and most suitable change type from the title and description. Treat
+   explicit evidence such as "Linux" as authoritative. Do not retain an incompatible supplied
+   classification; a Linux host alert is a server task, not Kubernetes/container work.
 2. First determine whether critical information required to generate safe executable code is missing.
 3. If critical information is missing, set ready_to_generate to false, return only the missing questions,
    and return empty strings for implementation_code, rollback_code, and implementation_procedure.
 4. If all critical information is available, set ready_to_generate to true and generate complete,
    executable implementation and rollback code without Markdown fences.
 5. Generate a concise implementation procedure, pre-checks, post-checks, and impact analysis.
-6. Generate only questions whose answers are genuinely missing and required for safe execution.
+6. Generate only questions whose answers are genuinely missing and strictly required to form
+   executable commands. Questions are exceptional, not a mandatory stage. Return at most 3.
 7. Do not repeat questions that have a meaningful answer in the supplied answers.
 8. Do not ask for values already stated in the title, description, or ServiceNow target.
-9. If a target is supplied, do not ask the user to type the same target again.
+9. Never ask for an IP address, hostname, connection address, username, or credentials as a
+   clarification question. Connection details belong to the Execution page. Use a supplied host
+   when present; generated code may operate locally on the connected host.
 10. Generate code appropriate for the supplied operating system or platform.
-11. If the platform is missing and affects command syntax, ask for it rather than guessing.
+11. "Linux" is sufficient for portable diagnostic commands; do not ask for a distribution unless
+    a distribution-specific package installation or configuration operation is explicitly required.
 12. Supported question types are text, select, multi_select, date_time, and confirmation.
     Use select or multi_select only when you provide explicit options.
 13. Never include credentials, API keys, or invented production values.
@@ -258,6 +340,19 @@ Requirements:
     language constructs such as loops, conditionals, and continuations correctly indented.
 16. Do not return escaped newline text such as \\n inside the generated script content;
     encode newlines normally as part of the JSON string.
+17. Do not ask governance or review questions such as contacts, approvals, maintenance windows,
+    downtime, notification, impact, rollback confirmation, or success criteria. Those are not
+    blockers for code generation and are handled elsewhere in XGuard.
+18. Do not ask Kubernetes cluster, namespace, resource, or replica questions unless Kubernetes is
+    explicitly stated in the request. Never infer Kubernetes merely from a generic change type.
+19. When a problem alert is clear but no destructive remediation is authorized, generate a safe,
+    read-only diagnostic script immediately. For high Linux memory, inspect memory/swap, top
+    consumers, pressure, and OOM evidence, then verify the measurements. Do not ask which process
+    to kill or service to restart unless the request explicitly requires automated remediation.
+20. Do not ask for a threshold, duration, host, or other value already present in alert text.
+21. rollback_code must never be empty when ready_to_generate is true. For an irreversible action
+    such as a completed reboot, clearly state that it cannot be undone and provide non-destructive
+    recovery verification commands. Never invent a fake reversal operation.
 
 Return exactly one JSON object with this structure:
 {{

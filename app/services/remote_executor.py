@@ -1,5 +1,5 @@
 """Remote Execution Service - SSH and WinRM execution"""
-from typing import Optional, Dict, Any, Generator
+from typing import Optional
 from dataclasses import dataclass
 import structlog
 

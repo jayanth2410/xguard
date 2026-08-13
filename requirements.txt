@@ -4,8 +4,8 @@ uvicorn[standard]==0.27.0
 flask==3.0.0
 
 # Persistence and validation
-sqlalchemy==2.0.25
-pydantic==2.5.3
+sqlalchemy==2.0.51
+pydantic==2.10.6
 
 # Integrations
 httpx==0.26.0

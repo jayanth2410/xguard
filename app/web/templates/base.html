@@ -28,6 +28,15 @@
                         <a href="/servicenow" class="flex items-center border-b-2 px-3 text-sm font-medium {{ 'border-blue-600 bg-blue-50/60 text-blue-700' if request.path.startswith('/servicenow') else 'border-transparent hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}">ServiceNow</a>
                     </div>
                 </div>
+                <div class="flex items-center gap-3">
+                    <div class="hidden text-right sm:block">
+                        <p class="text-sm font-medium text-slate-800">{{ session.user.full_name }}</p>
+                        <p class="text-xs capitalize text-slate-500">{{ session.user.role }}</p>
+                    </div>
+                    <form method="post" action="{{ url_for('main.logout') }}">
+                        <button type="submit" class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-red-300 hover:bg-red-100 hover:text-red-700">Sign out</button>
+                    </form>
+                </div>
             </div>
         </div>
     </nav>

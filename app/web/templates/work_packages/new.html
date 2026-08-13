@@ -149,11 +149,11 @@
         </div>
     </form>
 
-    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-md border bg-white px-3 py-2.5 text-sm shadow-lg"
-         :class="messageType === 'success' ? 'border-green-300' : 'border-red-300'">
-        <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="messageType === 'success' ? 'bg-green-500' : 'bg-red-500'"></span>
+    <div x-show="message" x-cloak class="fixed right-4 top-20 z-50 flex w-[min(92vw,24rem)] items-start gap-3 rounded-lg border border-l-4 px-4 py-3 shadow-xl"
+         :class="messageType === 'success' ? 'border-green-300 border-l-green-600 bg-green-50/95' : 'border-red-300 border-l-red-600 bg-red-50/95'">
+        <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white/70" :class="messageType === 'success' ? 'bg-green-600' : 'bg-red-600'"></span>
         <div class="min-w-0 flex-1"><p class="text-sm font-semibold" :class="messageType === 'success' ? 'text-green-800' : 'text-red-800'" x-text="messageType === 'success' ? 'Success' : 'Action failed'"></p><p class="mt-0.5 text-sm leading-5 text-slate-700" x-text="message"></p></div>
-        <button type="button" @click="message = ''" class="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
+        <button type="button" @click="message = ''" class="-mr-1 rounded px-1.5 py-0.5 text-lg leading-none text-slate-400 hover:bg-white/70 hover:text-slate-700" aria-label="Dismiss notification">&times;</button>
     </div>
 </div>
 {% endblock %}
@@ -186,6 +186,16 @@ function createWorkPackage() {
         message: '',
         messageType: '',
 
+        startRedirectCountdown(baseMessage, destination, destinationLabel, seconds = 4) {
+            let remaining = seconds;
+            this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            const timer = setInterval(() => {
+                remaining -= 1;
+                if (remaining <= 0) { clearInterval(timer); window.location.href = destination; }
+                else this.message = `${baseMessage} Opening ${destinationLabel} in ${remaining} seconds...`;
+            }, 1000);
+        },
+
         async submitForm() {
             this.loading = true;
             this.message = '';
@@ -208,11 +218,9 @@ function createWorkPackage() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.message = 'Work package created successfully!';
+                    const successMessage = 'Work package created successfully.';
                     this.messageType = 'success';
-                    setTimeout(() => {
-                        window.location.href = `/work-packages/${data.id}`;
-                    }, 5000);
+                    this.startRedirectCountdown(successMessage, `/work-packages/${data.id}`, 'work package');
                 } else {
                     const error = await response.json();
                     let errorMsg = 'Failed to create work package';
@@ -281,7 +289,10 @@ function createWorkPackage() {
                     if (data.detected_change_type) {
                         this.form.change_type = data.detected_change_type;
                     }
-                    this.message = `AI implementation generated. Intent: ${data.intent}.`;
+                    this.message = data.ready_to_generate
+                        ? `AI implementation generated. Intent: ${data.intent}.`
+                        : `${this.form.ai_questions.length} necessary clarification question${this.form.ai_questions.length === 1 ? '' : 's'} generated.`;
+                    this.messageType = data.ready_to_generate ? 'success' : 'info';
                 } else {
                     const error = await response.json();
                     this.message = error.detail || 'AI generation failed';

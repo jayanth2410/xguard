@@ -64,7 +64,11 @@ def _get_authorized_work_package(db: Session, work_package_id: UUID, *, is_rollb
     if not work_package:
         raise HTTPException(status_code=404, detail="Work package not found")
     if is_rollback:
-        allowed = {WorkflowStatus.EXECUTION_FAILED, WorkflowStatus.EXECUTING}
+        allowed = {
+            WorkflowStatus.EXECUTION_FAILED,
+            WorkflowStatus.EXECUTING,
+            WorkflowStatus.ROLLED_BACK,
+        }
         message = "Rollback is only allowed after execution has started or failed."
     else:
         allowed = {WorkflowStatus.APPROVED, WorkflowStatus.PENDING_EXECUTION, WorkflowStatus.EXECUTING}

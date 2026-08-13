@@ -9,9 +9,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.database import WorkPackage
-from app.core.clarification_questions import get_questions_for_change_type
-from app.models.enums import ChangeType
+from app.models.database import Review, WorkPackage
+from app.models.enums import WorkflowStatus
 from app.services.ai_generation_service import AIGenerationService
 
 router = APIRouter()
@@ -80,6 +79,22 @@ async def generate_script(
             infrastructure = work_package.target_infrastructure
             platform = infrastructure[0] if isinstance(infrastructure, list) else str(infrastructure)
 
+        review_feedback = {}
+        if work_package and work_package.status == WorkflowStatus.REWORK_REQUIRED:
+            latest_review = db.query(Review).filter(
+                Review.work_package_id == work_package.id,
+                Review.decision.in_(["rework_required", "rejected"]),
+            ).order_by(Review.completed_at.desc(), Review.started_at.desc()).first()
+            if latest_review:
+                review_feedback = {
+                    "decision": latest_review.decision,
+                    "general_comments": latest_review.comments or "",
+                    "implementation_review_notes": latest_review.code_review_notes or "",
+                    "rollback_review_notes": latest_review.rollback_review_notes or "",
+                    "security_review_notes": latest_review.security_review_notes or "",
+                    "impact_review_notes": latest_review.impact_review_notes or "",
+                }
+
         service = AIGenerationService()
         result = await asyncio.to_thread(
             service.generate,
@@ -89,36 +104,50 @@ async def generate_script(
             target_host=target_host,
             platform=platform,
             question_responses=request.question_responses,
-            force_final_generation=bool(request.question_responses),
+            force_final_generation=bool(request.question_responses) or bool(review_feedback),
+            review_feedback=review_feedback,
+            previous_implementation_code=(work_package.generated_code or "") if review_feedback else "",
+            previous_rollback_code=(work_package.rollback_procedure or "") if review_feedback else "",
+            previous_implementation_procedure=(work_package.generated_procedure or "") if review_feedback else "",
+            previous_impact_analysis=(work_package.impact_analysis or {}) if review_feedback else {},
         )
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     ai_questions = [question.model_dump(mode="json") for question in result.questions]
-    try:
-        resolved_change_type = ChangeType(result.change_type or change_type)
-    except ValueError:
-        resolved_change_type = work_package.change_type if work_package else ChangeType.SERVER
-    database_questions = get_questions_for_change_type(
-        resolved_change_type,
-        description=description,
-        title=title,
-        ci_info={"ci_name": target_host} if target_host else None,
-    )
     questions = []
     seen_keys = set()
-    existing_questions = list(work_package.ai_questions or []) if work_package else []
     seen_texts = set()
-    sourced_questions = (
-        [(question, "database") for question in database_questions]
-        + [(question, question.get("source", "ai")) for question in existing_questions]
-        + [(question, "ai") for question in ai_questions]
+    forbidden_question_terms = (
+        "ip address", "hostname/ip", "target server", "emergency contact",
+        "execution window", "timezone", "expected impact", "downtime",
+        "rollback method", "restoration point", "successful execution be verified",
+        "on-call", "monitoring team", "approval", "reference number",
     )
-    for question, source in sourced_questions:
+    request_text = f"{title} {description}".lower()
+    is_kubernetes_request = any(
+        term in request_text for term in ("kubernetes", "k8s", "namespace", "kubectl")
+    )
+    is_memory_alert = "memory" in request_text and any(
+        term in request_text for term in ("utilization", "usage", "high memory", "oom")
+    )
+    for question in ai_questions:
         item = dict(question)
-        item["source"] = source
+        item["source"] = "ai"
         item["question_type"] = getattr(item.get("question_type"), "value", item.get("question_type", "text"))
         normalized_text = " ".join(item.get("question_text", "").lower().split())
+        if any(term in normalized_text for term in forbidden_question_terms):
+            continue
+        if not is_kubernetes_request and any(
+            term in normalized_text
+            for term in ("kubernetes", "cluster", "namespace", "replica", "resource limits")
+        ):
+            continue
+        if is_memory_alert and any(
+            term in normalized_text
+            for term in ("linux distribution", "optimize memory", "memory utilization strategy", "services should be restarted")
+        ):
+            continue
         if item["question_key"] not in seen_keys and normalized_text not in seen_texts:
             seen_keys.add(item["question_key"])
             seen_texts.add(normalized_text)

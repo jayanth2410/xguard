@@ -1,5 +1,5 @@
 """Flask routes for web UI"""
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, Response
 import httpx
 from app.core.config import settings
 
@@ -7,7 +7,48 @@ main_bp = Blueprint('main', __name__)
 workflow_bp = Blueprint('workflow', __name__)
 api_bp = Blueprint('api', __name__)
 
-API_BASE_URL = "http://127.0.0.1:8000"
+API_BASE_URL = f"http://{settings.FASTAPI_HOST}:{settings.FASTAPI_PORT}"
+
+
+@main_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    """Create a Flask session after the API verifies credentials."""
+    if request.method == 'GET':
+        if session.get('user'):
+            return redirect(url_for('main.index'))
+        return render_template('auth/login.html')
+
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(
+                f"{API_BASE_URL}/api/v1/users/login",
+                json={"username": username, "password": password},
+            )
+        if response.status_code == 200:
+            user = response.json()
+            session.clear()
+            session['user'] = {
+                'id': user['id'],
+                'username': user['username'],
+                'full_name': user.get('full_name') or user['username'],
+                'role': user['role'],
+            }
+            destination = request.args.get('next', '/')
+            if not destination.startswith('/') or destination.startswith('//'):
+                destination = '/'
+            return redirect(destination)
+        error = response.json().get('detail', 'Invalid username or password')
+    except httpx.RequestError:
+        error = 'The XGuard API is unavailable. Start the API server and try again.'
+    return render_template('auth/login.html', error=error, username=username), 401
+
+
+@main_bp.post('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('main.login'))
 
 
 @api_bp.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])

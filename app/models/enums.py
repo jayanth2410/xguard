@@ -21,6 +21,7 @@ class WorkflowStatus(str, Enum):
     IN_REVIEW = "in_review"
     APPROVED = "approved"
     REWORK_REQUIRED = "rework_required"
+    REJECTED = "rejected"
     PENDING_EXECUTION = "pending_execution"
     EXECUTING = "executing"
     EXECUTED = "executed"
@@ -49,30 +50,3 @@ class TriggerSource(str, Enum):
     SERVICENOW_REQUEST = "servicenow_request"
     MANUAL = "manual"
     API = "api"
-
-
-class ClarificationQuestionType(str, Enum):
-    """Types of pre-review clarification questions"""
-    TEXT = "text"
-    SELECT = "select"
-    MULTI_SELECT = "multi_select"
-    DATE_TIME = "date_time"
-    CONFIRMATION = "confirmation"
-
-
-class InfrastructureTarget(str, Enum):
-    """Infrastructure target types"""
-    DATACENTER = "datacenter"
-    NETWORK = "network"
-    CLOUD_AWS = "cloud_aws"
-    CLOUD_AZURE = "cloud_azure"
-    CLOUD_GCP = "cloud_gcp"
-    CONTAINER_K8S = "container_k8s"
-    DATABASE = "database"
-    SECURITY_IAM = "security_iam"
-    END_USER_COMPUTING = "end_user_computing"
-    MIDDLEWARE = "middleware"
-    MONITORING = "monitoring"
-    CICD = "cicd"
-    BACKUP_DR = "backup_dr"
-    APPLICATIONS = "applications"

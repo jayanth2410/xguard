@@ -1,5 +1,5 @@
 """Work Package API endpoints"""
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session

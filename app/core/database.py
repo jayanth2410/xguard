@@ -26,6 +26,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def ensure_work_package_ai_columns() -> None:
     """Add backward-compatible application columns without losing data."""
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TYPE workflowstatus ADD VALUE IF NOT EXISTS 'REJECTED'"
+            ))
+
     inspector = inspect(engine)
     if "work_packages" not in inspector.get_table_names():
         return
@@ -53,6 +59,24 @@ def ensure_work_package_ai_columns() -> None:
         with engine.begin() as connection:
             for statement in statements:
                 connection.execute(text(statement))
+
+    # Correct packages rejected before REJECTED became a distinct workflow state.
+    with engine.begin() as connection:
+        connection.execute(text("""
+            UPDATE work_packages
+            SET status = 'REJECTED'
+            WHERE status = 'REWORK_REQUIRED'
+              AND EXISTS (
+                  SELECT 1 FROM reviews rejected_review
+                  WHERE rejected_review.work_package_id = work_packages.id
+                    AND rejected_review.decision = 'rejected'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM reviews newer_review
+                        WHERE newer_review.work_package_id = rejected_review.work_package_id
+                          AND newer_review.started_at > rejected_review.started_at
+                    )
+              )
+        """))
 
     inspector = inspect(engine)
     if "reviews" in inspector.get_table_names():
