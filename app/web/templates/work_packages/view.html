@@ -21,7 +21,7 @@
         </div>
         <div class="flex flex-wrap items-start gap-3 shrink-0 lg:justify-end lg:self-start">
             <a :href="'/work-packages/' + pkg.id + '/edit'"
-               x-show="pkg.status !== 'rejected'" x-cloak
+               x-show="pkg.status === 'draft' || pkg.status === 'rework_required'" x-cloak
                class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium border rounded transition-colors"
                :class="pkg.status === 'rework_required' ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' : 'border-blue-300 text-blue-700 hover:bg-blue-50'"
                x-text="pkg.status === 'rework_required' ? 'Resolve Rework' : 'Edit Package'"></a>
@@ -105,7 +105,13 @@
                     <div class="flex items-center gap-2 whitespace-nowrap">
                         <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs"
                              :class="getStepClass(step.key)">
-                            <span x-text="index + 1"></span>
+                            <svg x-show="isStepRejected(step.key)" class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            <svg x-show="!isStepRejected(step.key) && isStepComplete(step.key)" class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span x-show="!isStepRejected(step.key) && !isStepComplete(step.key)" x-text="index + 1"></span>
                         </div>
                         <span class="text-xs" x-text="step.label"></span>
                     </div>
@@ -287,7 +293,7 @@ function workPackageView(workPackageId) {
                 'executed': 'bg-indigo-100 text-indigo-800 ring-indigo-200',
                 'execution_failed': 'bg-red-100 text-red-800 ring-red-200',
                 'rolled_back': 'bg-slate-100 text-slate-800 ring-slate-200',
-                'completed': 'bg-green-100 text-green-800 ring-green-200'
+                'completed': 'status-achieved'
             };
             return classes[status] || 'bg-gray-100 text-gray-800 ring-gray-200';
         },
@@ -305,7 +311,7 @@ function workPackageView(workPackageId) {
                 'executed': 'bg-indigo-500',
                 'execution_failed': 'bg-red-500',
                 'rolled_back': 'bg-slate-500',
-                'completed': 'bg-green-500'
+                'completed': 'bg-violet-600 ring-2 ring-violet-200'
             };
             return dots[status] || 'bg-gray-500';
         },
@@ -320,7 +326,9 @@ function workPackageView(workPackageId) {
         },
 
         getStepClass(stepKey) {
-            if (this.isStepComplete(stepKey)) {
+            if (this.isStepRejected(stepKey)) {
+                return 'bg-red-600 text-white ring-2 ring-red-200';
+            } else if (this.isStepComplete(stepKey)) {
                 return 'bg-green-500 text-white';
             } else if (this.isStepCurrent(stepKey)) {
                 return 'bg-indigo-500 text-white';
@@ -330,12 +338,16 @@ function workPackageView(workPackageId) {
 
         isStepComplete(stepKey) {
             const statusOrder = {
-                'creation': ['pending_review', 'in_review', 'approved', 'pending_execution', 'executing', 'executed', 'completed'],
+                'creation': ['pending_review', 'in_review', 'approved', 'rework_required', 'rejected', 'pending_execution', 'executing', 'executed', 'completed'],
                 'review': ['approved', 'pending_execution', 'executing', 'executed', 'completed'],
                 'execution': ['completed'],
-                'completed': []
+                'completed': ['completed']
             };
             return statusOrder[stepKey]?.includes(this.pkg.status);
+        },
+
+        isStepRejected(stepKey) {
+            return this.pkg.status === 'rejected' && stepKey === 'review';
         },
 
         isStepCurrent(stepKey) {

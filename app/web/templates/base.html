@@ -23,6 +23,31 @@
         input[type="submit"]:disabled:hover {
             transform: none !important;
         }
+
+        .status-achieved {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: #ffffff !important;
+            background: linear-gradient(135deg, #4338ca, #7c3aed) !important;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.28);
+            letter-spacing: 0.015em;
+        }
+
+        .status-achieved::before {
+            content: "\2713";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            color: #4f46e5;
+            background: #ffffff;
+            font-size: 0.68rem;
+            font-weight: 800;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
