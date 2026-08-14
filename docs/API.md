@@ -116,8 +116,14 @@ When a work package has multiple target IPs, the Execution page tracks each targ
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/workflow/dashboard` | Dashboard counts and status summary |
+| GET | `/workflow/audit/{work_package_id}` | Detailed package, review, execution-session, command, output, error, and rollback audit |
 | GET | `/workflow/audit/{work_package_id}/timeline` | Package audit timeline |
 | GET | `/workflow/audit/{work_package_id}/compliance` | Package compliance record |
+
+Audit data is derived from `work_packages`, `reviews`, and `execution_records`.
+Each recorded command includes its target host, complete command or script,
+timestamp, exit code, standard output, standard error, success state, and whether
+it was a rollback command.
 
 ## ServiceNow
 

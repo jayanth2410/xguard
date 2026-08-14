@@ -51,6 +51,11 @@
                     View Audit Trail
                 </a>
             </template>
+            <template x-if="['executing', 'executed', 'execution_failed'].includes(pkg.status)">
+                <a :href="'/workflow/audit/' + pkg.id" class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium border border-slate-300 bg-white text-slate-700 rounded hover:bg-slate-50">
+                    View Execution Audit
+                </a>
+            </template>
         </div>
     </div>
 

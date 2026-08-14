@@ -31,6 +31,18 @@ async def get_timeline(
     return {"timeline": timeline}
 
 
+@router.get("/audit/{work_package_id}")
+async def get_audit_report(
+    work_package_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Return detailed review and execution history for a work package."""
+    report = await AuditService(db).get_audit_report(work_package_id)
+    if "error" in report:
+        raise HTTPException(status_code=404, detail=report["error"])
+    return report
+
+
 @router.get("/audit/{work_package_id}/compliance")
 async def get_compliance_report(
     work_package_id: UUID,

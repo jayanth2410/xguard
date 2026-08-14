@@ -110,29 +110,8 @@ class WorkPackage(Base):
     # Relationships
     maker = relationship("User", back_populates="created_packages", foreign_keys=[maker_id])
     assigned_checker = relationship("User", foreign_keys=[assigned_checker_id])
-    steps = relationship("WorkPackageStep", back_populates="work_package", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="work_package", cascade="all, delete-orphan")
     execution_records = relationship("ExecutionRecord", back_populates="work_package", cascade="all, delete-orphan")
-    audit_logs = relationship("AuditLog", back_populates="work_package", cascade="all, delete-orphan")
-
-
-class WorkPackageStep(Base):
-    """Individual steps within a work package"""
-    __tablename__ = "work_package_steps"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    work_package_id = Column(UUID(as_uuid=True), ForeignKey("work_packages.id"), nullable=False)
-
-    step_number = Column(Integer, nullable=False)
-    title = Column(String(255), nullable=False)
-    description = Column(Text)
-    command = Column(Text)  # Command/script to execute
-    expected_output = Column(Text)
-    timeout_seconds = Column(Integer, default=300)
-    is_rollback_step = Column(Boolean, default=False)
-
-    # Relationships
-    work_package = relationship("WorkPackage", back_populates="steps")
 
 
 class Review(Base):
@@ -198,31 +177,3 @@ class ExecutionRecord(Base):
     # Relationships
     work_package = relationship("WorkPackage", back_populates="execution_records")
     executor = relationship("User", back_populates="executions")
-
-
-class AuditLog(Base):
-    """Comprehensive audit trail"""
-    __tablename__ = "audit_logs"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    work_package_id = Column(UUID(as_uuid=True), ForeignKey("work_packages.id"))
-
-    # Audit details
-    action = Column(String(100), nullable=False)
-    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    actor_type = Column(String(50))  # user, system, ai
-
-    # Change details
-    old_value = Column(JSON)
-    new_value = Column(JSON)
-    details = Column(Text)
-
-    # Context
-    ip_address = Column(String(50))
-    user_agent = Column(String(500))
-
-    # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    work_package = relationship("WorkPackage", back_populates="audit_logs")

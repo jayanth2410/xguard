@@ -6,14 +6,14 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api import api_router
 from app.models.database import Base
-from app.core.database import engine, ensure_work_package_ai_columns
+from app.core.database import engine, ensure_database_schema
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create and upgrade application tables during startup."""
     Base.metadata.create_all(bind=engine)
-    ensure_work_package_ai_columns()
+    ensure_database_schema()
     yield
 
 

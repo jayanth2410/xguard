@@ -1,4 +1,6 @@
 """Remote Execution Service - SSH and WinRM execution"""
+import base64
+import uuid
 from typing import Optional
 from dataclasses import dataclass
 import structlog
@@ -138,13 +140,21 @@ class RemoteExecutor:
             return ExecutionResult(exit_code=-1, stdout="", stderr=str(e), success=False)
 
     def execute_script(self, script: str, timeout: int = 600) -> ExecutionResult:
-        """Execute a multi-line script"""
+        """Execute a multi-line script without embedding it in shell quotes."""
         if self.config.connection_type == "ssh":
-            # For SSH, execute as a single command with bash
-            command = f"bash -c '{script}'" if not script.startswith("#!") else script
+            encoded = base64.b64encode(script.encode("utf-8")).decode("ascii")
+            remote_path = f"/tmp/xguard-{uuid.uuid4().hex}.sh"
+            command = (
+                "umask 077; "
+                f"printf '%s' '{encoded}' | base64 -d > {remote_path}; "
+                f"chmod 700 {remote_path}; "
+                f"/bin/bash {remote_path}; "
+                "result=$?; "
+                f"rm -f {remote_path}; "
+                "exit $result"
+            )
             return self._execute_ssh(command, timeout)
-        elif self.config.connection_type == "winrm":
-            # For WinRM, use PowerShell
+        if self.config.connection_type == "winrm":
             return self._execute_winrm(script, timeout)
         return ExecutionResult(exit_code=-1, stdout="", stderr="Invalid connection type", success=False)
 

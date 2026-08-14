@@ -10,25 +10,6 @@ from app.models.enums import (
 )
 
 
-class WorkPackageStepCreate(BaseModel):
-    """Schema for creating a work package step"""
-    step_number: int
-    title: str
-    description: Optional[str] = None
-    command: Optional[str] = None
-    expected_output: Optional[str] = None
-    timeout_seconds: int = 300
-    is_rollback_step: bool = False
-
-
-class WorkPackageStepResponse(WorkPackageStepCreate):
-    """Schema for work package step response"""
-    id: UUID
-
-    class Config:
-        from_attributes = True
-
-
 class WorkPackageCreate(BaseModel):
     """Schema for creating a work package"""
     ticket_id: str = Field(..., description="ServiceNow ticket ID")
@@ -59,8 +40,6 @@ class WorkPackageCreate(BaseModel):
     scheduled_end: Optional[datetime] = None
     maintenance_window: Optional[str] = None
 
-    # Steps
-    steps: Optional[List[WorkPackageStepCreate]] = None
 
 
 class WorkPackageUpdate(BaseModel):
@@ -122,8 +101,6 @@ class WorkPackageResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
-
-    steps: List[WorkPackageStepResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

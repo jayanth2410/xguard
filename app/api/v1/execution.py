@@ -2,7 +2,7 @@
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -78,12 +78,20 @@ def _get_authorized_work_package(db: Session, work_package_id: UUID, *, is_rollb
     return work_package
 
 
-def _record_remote_result(db, work_package, request, result) -> None:
+def _record_remote_result(
+    db,
+    work_package,
+    request,
+    result,
+    executor_id: Optional[UUID] = None,
+) -> None:
     """Persist execution state immediately; do not depend on client-side logging."""
     execution = db.query(ExecutionRecord).filter(ExecutionRecord.work_package_id == work_package.id).order_by(ExecutionRecord.started_at.desc()).first()
     if not execution or execution.status in {"success", "rolled_back"}:
-        execution = ExecutionRecord(work_package_id=work_package.id, execution_mode=work_package.execution_mode or ExecutionMode.MANUAL, status="running", started_at=datetime.utcnow(), command_log=[])
+        execution = ExecutionRecord(work_package_id=work_package.id, executor_id=executor_id, execution_mode=work_package.execution_mode or ExecutionMode.MANUAL, status="running", started_at=datetime.utcnow(), command_log=[])
         db.add(execution)
+    elif executor_id and not execution.executor_id:
+        execution.executor_id = executor_id
     entry = {"command": request.command, "output": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code, "success": result.success, "host": request.host, "is_rollback": request.is_rollback, "timestamp": datetime.utcnow().isoformat()}
     log = list(execution.command_log or [])
     log.append(entry)
@@ -207,6 +215,7 @@ async def test_remote_connection(
 async def execute_remote_command(
     request: RemoteCommandRequest,
     db: Session = Depends(get_db),
+    executor_id: Optional[UUID] = Header(None, alias="X-XGuard-User-Id"),
 ):
     """Execute a command on a remote host via SSH or WinRM"""
     work_package = _get_authorized_work_package(
@@ -231,7 +240,7 @@ async def execute_remote_command(
             )
 
         result = executor.execute(request.command, timeout=request.timeout)
-        _record_remote_result(db, work_package, request, result)
+        _record_remote_result(db, work_package, request, result, executor_id)
 
         return {
             "success": result.success,
@@ -250,6 +259,7 @@ async def execute_remote_command(
 async def execute_remote_script(
     request: RemoteCommandRequest,
     db: Session = Depends(get_db),
+    executor_id: Optional[UUID] = Header(None, alias="X-XGuard-User-Id"),
 ):
     """Execute a multi-line script on a remote host"""
     work_package = _get_authorized_work_package(
@@ -274,7 +284,7 @@ async def execute_remote_script(
             )
 
         result = executor.execute_script(request.command, timeout=request.timeout)
-        _record_remote_result(db, work_package, request, result)
+        _record_remote_result(db, work_package, request, result, executor_id)
 
         return {
             "success": result.success,

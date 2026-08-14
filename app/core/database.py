@@ -24,8 +24,8 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def ensure_work_package_ai_columns() -> None:
-    """Add backward-compatible application columns without losing data."""
+def ensure_database_schema() -> None:
+    """Apply small backward-compatible schema upgrades and remove obsolete tables."""
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             connection.execute(text(
@@ -77,6 +77,12 @@ def ensure_work_package_ai_columns() -> None:
                     )
               )
         """))
+
+    # Audit now derives from reviews and execution_records. Parsed script steps
+    # are held in the execution UI and recorded in execution_records.command_log.
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS audit_logs"))
+        connection.execute(text("DROP TABLE IF EXISTS work_package_steps"))
 
     inspector = inspect(engine)
     if "reviews" in inspector.get_table_names():

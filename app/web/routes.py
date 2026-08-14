@@ -58,17 +58,20 @@ def proxy_api(path):
 
     # Forward the request
     try:
+        proxy_headers = {}
+        if session.get('user', {}).get('id'):
+            proxy_headers['X-XGuard-User-Id'] = session['user']['id']
         with httpx.Client(timeout=30.0) as client:
             if request.method == 'GET':
-                resp = client.get(url, params=request.args)
+                resp = client.get(url, params=request.args, headers=proxy_headers)
             elif request.method == 'POST':
-                resp = client.post(url, json=request.get_json(silent=True), params=request.args)
+                resp = client.post(url, json=request.get_json(silent=True), params=request.args, headers=proxy_headers)
             elif request.method == 'PUT':
-                resp = client.put(url, json=request.get_json(silent=True), params=request.args)
+                resp = client.put(url, json=request.get_json(silent=True), params=request.args, headers=proxy_headers)
             elif request.method == 'DELETE':
-                resp = client.delete(url, params=request.args)
+                resp = client.delete(url, params=request.args, headers=proxy_headers)
             elif request.method == 'PATCH':
-                resp = client.patch(url, json=request.get_json(silent=True), params=request.args)
+                resp = client.patch(url, json=request.get_json(silent=True), params=request.args, headers=proxy_headers)
             else:
                 return jsonify({"error": "Method not allowed"}), 405
 

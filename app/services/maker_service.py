@@ -5,7 +5,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy.orm import Session
 
-from app.models.database import WorkPackage, WorkPackageStep
+from app.models.database import WorkPackage
 from app.models.enums import ChangeType, WorkflowStatus
 from app.schemas.work_package import WorkPackageCreate, WorkPackageUpdate
 
@@ -48,20 +48,6 @@ class MakerService:
             maker_id=maker_id,
         )
         self.db.add(work_package)
-        self.db.flush()
-
-        for step_data in data.steps or []:
-            self.db.add(WorkPackageStep(
-                work_package_id=work_package.id,
-                step_number=step_data.step_number,
-                title=step_data.title,
-                description=step_data.description,
-                command=step_data.command,
-                expected_output=step_data.expected_output,
-                timeout_seconds=step_data.timeout_seconds,
-                is_rollback_step=step_data.is_rollback_step,
-            ))
-
         self.db.commit()
         self.db.refresh(work_package)
         logger.info(
