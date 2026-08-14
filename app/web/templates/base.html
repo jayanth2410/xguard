@@ -8,6 +8,21 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
+        button:disabled,
+        input[type="button"]:disabled,
+        input[type="submit"]:disabled {
+            cursor: not-allowed !important;
+            opacity: 0.45 !important;
+            filter: grayscale(45%);
+            box-shadow: none !important;
+            pointer-events: auto;
+        }
+
+        button:disabled:hover,
+        input[type="button"]:disabled:hover,
+        input[type="submit"]:disabled:hover {
+            transform: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
